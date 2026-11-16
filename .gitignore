@@ -1,0 +1,8 @@
+# Build Cargo
+/target/
+
+# IDE JetBrains (RustRover / CLion)
+/.idea/
+
+# macOS
+.DS_Store

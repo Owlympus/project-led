@@ -1,6 +1,6 @@
 # Feuille de route
 
-**Statut actuel :** étape 1 en cours. Types de couleur et mélange des blancs écrits et testés dans `led_core`.
+**Statut actuel :** étape 1 en cours. Types de couleur, mélange des blancs et HSV écrits et testés dans `led_core`.
 **Prochaine étape :** étape 1 (`led_core`).
 
 ## Étapes
@@ -11,10 +11,10 @@
   - [x] Types de couleur : `Rgb` et pixel à 5 canaux `Rgbcct`
   - [x] Température de blanc (`ColorTemperature`, en mireds) et mélange chaud / froid (`WhiteChannels::mix`)
   - [x] Luminosité (`scale`)
-  - [ ] Teinte / saturation (HSV → RGB), comme le cluster Matter Color Control
+  - [x] Teinte / saturation (`Hsv` → `Rgb` via `From`), comme le cluster Matter Color Control
   - [ ] Correction gamma
   - [ ] Transitions douces (interpolation dans le temps)
-  - [x] Tests unitaires (12 tests, `cargo test -p led_core`)
+  - [x] Tests unitaires (`cargo test -p led_core`)
 - [ ] **2. Piloter la bande depuis le C6**
   - [ ] Installer la toolchain (`espup` / cible RISC-V, `espflash`)
   - [ ] Créer le crate `firmware`, faire clignoter une LED

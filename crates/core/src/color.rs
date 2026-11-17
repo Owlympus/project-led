@@ -42,7 +42,13 @@ impl Rgbcct {
     pub const OFF: Rgbcct = Rgbcct::new(0, 0, 0, 0, 0);
 
     pub const fn new(r: u8, g: u8, b: u8, warm: u8, cold: u8) -> Self {
-        Self { r, g, b, warm, cold }
+        Self {
+            r,
+            g,
+            b,
+            warm,
+            cold,
+        }
     }
 
     /// A colored pixel with both white channels off.
@@ -70,7 +76,7 @@ impl Rgbcct {
 /// Computes `value * brightness / 255`, rounded to the nearest integer.
 ///
 /// The multiplication is done in `u16` because 255 * 255 does not fit in a `u8`.
-fn scale8(value: u8, brightness: u8) -> u8 {
+pub(crate) fn scale8(value: u8, brightness: u8) -> u8 {
     let product = value as u16 * brightness as u16;
     ((product + 127) / 255) as u8
 }

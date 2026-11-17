@@ -19,6 +19,14 @@ Objectif final : chaque lampe apparaît dans l'app **Maison** de l'iPhone via **
 - Toute décision structurante → nouvel ADR dans `.claude/decisions/` (voir le modèle) et mise à jour de l'index.
 - Toute étape terminée → entrée dans `.claude/CHANGELOG.md` et mise à jour de `.claude/ROADMAP.md`.
 
+## Git
+
+- `main` reste stable : on n'y travaille pas directement.
+- Une branche par brique : `feat/…` (fonctionnalité), `fix/…` (correction), `docs/…` (documentation). Ex. : `feat/led-core-hsv`.
+- Messages de commit en anglais, préfixés par le crate concerné (`led_core: …`), avec un corps qui liste les changements.
+- Chaque branche est poussée puis fusionnée dans `main` via une **pull request** sur GitHub (`gh pr create`).
+- Avant de commiter : `cargo fmt`, `cargo clippy --all-targets`, `cargo test`.
+
 ## Structure
 
 Workspace Cargo (`crates/*`) :
@@ -34,5 +42,7 @@ Workspace Cargo (`crates/*`) :
 ## Commandes
 
 ```bash
-cargo test -p led_core   # tests sur le Mac
+cargo test -p led_core               # tests sur le Mac
+cargo clippy -p led_core --all-targets   # analyse du code (lint)
+cargo fmt                            # formatage automatique
 ```

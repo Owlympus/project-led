@@ -1,7 +1,7 @@
 # Feuille de route
 
 **Statut actuel :** étape 1 terminée ; le code des étapes 2, 3 et 4a compile mais n'a pas encore tourné sur la carte. Le code des étapes 4b (luminosité et couleurs), 4c (sauvegarde en flash) et 4d (bouton tactile) compile aussi.
-**Prochaine étape :** les tests sur le matériel dès que la carte arrive ; en attendant, les ambiances de la boîte à idées, ou l'étape 5 (boîtier). La carte (Waveshare ESP32-C6-DEV-KIT-N8) est commandée. Il manque encore la bande et l'adaptateur de niveau.
+**Prochaine étape :** les tests sur le matériel dès que la carte arrive ; en attendant, la suite de l'étape 4e (afficher les signaux d'état depuis le firmware). La carte (Waveshare ESP32-C6-DEV-KIT-N8) est commandée. Il manque encore la bande et l'adaptateur de niveau.
 
 ## Étapes
 
@@ -39,6 +39,10 @@
   - [ ] Sur la vraie carte : la lampe reste appairée et revient à son dernier état après un redémarrage
   - [x] **4d.** Bouton tactile local (TTP223 sur GPIO3) : appui = bascule via Matter, maintien 5 s au démarrage = oubli de l'appairage (ADR-0012) ; compilé, pas encore testé
   - [ ] Sur la vraie carte : acheter et brancher le TTP223, vérifier son mode et les deux gestes
+  - [ ] **4e.** Signaux d'état (voir la boîte à idées)
+    - [x] `led_core::effect` : `Scanner` (vague K2000), `blink_on`, `StatusSignal` (attente d'appairage, connexion au Wi-Fi, Wi-Fi perdu) ; testés sur Mac
+    - [ ] `firmware` : envoyer une image pixel par pixel à la bande (`Strip::show`)
+    - [ ] `firmware` : savoir quand Matter attend l'appairage, rejoint le Wi-Fi ou l'a perdu, et afficher le signal
 - [ ] **5. Boîtier** : tube acrylique, diffusion, dissipation thermique
 
 ## Questions ouvertes
@@ -55,6 +59,8 @@
 ## Idées pour plus tard
 
 ### Boîte à idées : signaux lumineux d'état
+
+En cours : étape 4e.
 
 - **En attente de configuration** (premier démarrage, avant l'appairage Bluetooth) : une vague **rouge** qui va et vient le long de la barre, façon K2000 (*Larson scanner*).
 - **Première connexion au Wi-Fi** (juste après la configuration Bluetooth) : la même vague, en **bleu**.

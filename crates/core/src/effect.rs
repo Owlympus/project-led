@@ -86,6 +86,82 @@ pub fn blink_on(elapsed_ms: u32, period_ms: u32) -> bool {
     elapsed_ms % period_ms < period_ms / 2
 }
 
+/// The color at `position` (0 = start, 65535 = end) of a gradient whose
+/// `stops` are spread evenly from start to end and blended in between.
+/// No stops: off.
+pub fn gradient_at(stops: &[Rgbcct], position: u16) -> Rgbcct {
+    // `match` on a slice: by number of elements, like a `switch (count())`.
+    match stops {
+        [] => Rgbcct::OFF,
+        [only] => *only,
+        _ => {
+            const END: u32 = u16::MAX as u32;
+            let segments = stops.len() as u32 - 1;
+            // Which segment (between stop `index` and the next one), and
+            // how far into it: `t` on the same 0..=65535 scale as `lerp`.
+            let scaled = position as u32 * segments;
+            let index = (scaled / END) as usize;
+            let t = (scaled % END) as u16;
+            match stops.get(index + 1) {
+                Some(next) => stops[index].lerp(*next, t),
+                None => stops[stops.len() - 1], // position == 65535
+            }
+        }
+    }
+}
+
+/// Where pixel `index` of a strip of `len` pixels sits, on the 0..=65535
+/// scale of [`gradient_at`]: the first pixel at 0, the last at 65535.
+pub fn pixel_position(index: usize, len: usize) -> u16 {
+    if len <= 1 {
+        return 0;
+    }
+    let last = len as u32 - 1;
+    let index = (index as u32).min(last);
+    ((index * u16::MAX as u32 + last / 2) / last) as u16
+}
+
+/// Folds an ever-growing value back and forth over 0..=65535: 0 → 65535,
+/// then back to 0, and so on. Moves a gradient without a jump when it
+/// "wraps around".
+pub fn ping_pong(value: u32) -> u16 {
+    const ONE_WAY: u32 = 1 << 16;
+    let phase = value % (2 * ONE_WAY);
+    if phase < ONE_WAY {
+        phase as u16
+    } else {
+        (2 * ONE_WAY - 1 - phase) as u16
+    }
+}
+
+/// A smooth "random" value (0..=255) that drifts over time: a new random
+/// target every `step_ms`, blended linearly in between. Each `seed` (one
+/// per pixel, say) gives its own drift. Deterministic: the same inputs
+/// always give the same value, which keeps it testable.
+pub fn smooth_noise(seed: u32, elapsed_ms: u32, step_ms: u32) -> u8 {
+    let step_ms = step_ms.max(1);
+    let step = elapsed_ms / step_ms;
+    let from = hash(seed, step);
+    let to = hash(seed, step.wrapping_add(1));
+    // Position between the two targets, on the 0..=65535 scale of `lerp`.
+    let t = ((elapsed_ms % step_ms) as u64 * u16::MAX as u64 / step_ms as u64) as u32;
+    let mixed = from as u32 * (u16::MAX as u32 - t) + to as u32 * t;
+    (mixed / u16::MAX as u32) as u8
+}
+
+/// Mixes two numbers into a byte that looks random. There is no random
+/// generator in `no_std`, and we don't need a real one: just values that
+/// look unrelated to each other. (The steps of MurmurHash3's finalizer.)
+fn hash(seed: u32, step: u32) -> u8 {
+    let mut x = seed.wrapping_mul(0x9E37_79B1) ^ step;
+    x ^= x >> 16;
+    x = x.wrapping_mul(0x85EB_CA6B);
+    x ^= x >> 13;
+    x = x.wrapping_mul(0xC2B2_AE35);
+    x ^= x >> 16;
+    (x >> 24) as u8
+}
+
 /// The lamp's status signals: what the strip shows when it has something to
 /// say about its connection rather than the color asked by the Home app.
 /// (See the idea box in the ROADMAP.)
@@ -203,6 +279,63 @@ mod tests {
         let mut single = [Rgbcct::OFF];
         SCANNER.render(123, &mut single);
         assert_eq!(single, [RED]);
+    }
+
+    #[test]
+    fn gradient_hits_its_stops() {
+        let stops = [
+            RED,
+            Rgbcct::new(0, 255, 0, 0, 0),
+            Rgbcct::new(0, 0, 255, 0, 0),
+        ];
+        assert_eq!(gradient_at(&stops, 0), stops[0]);
+        assert_eq!(gradient_at(&stops, u16::MAX), stops[2]);
+        // The middle pixel of a 5-pixel strip lands on the middle stop.
+        assert_eq!(gradient_at(&stops, pixel_position(2, 5)), stops[1]);
+    }
+
+    #[test]
+    fn gradient_blends_between_stops() {
+        let stops = [Rgbcct::OFF, RED];
+        assert_eq!(gradient_at(&stops, u16::MAX / 2).r, 127);
+        assert_eq!(gradient_at(&[], 1234), Rgbcct::OFF);
+        assert_eq!(gradient_at(&[RED], 1234), RED);
+    }
+
+    #[test]
+    fn pixel_positions_span_the_scale() {
+        assert_eq!(pixel_position(0, 30), 0);
+        assert_eq!(pixel_position(29, 30), u16::MAX);
+        assert_eq!(pixel_position(0, 1), 0);
+        assert!(pixel_position(10, 30) < pixel_position(11, 30));
+    }
+
+    #[test]
+    fn ping_pong_goes_and_comes_back() {
+        assert_eq!(ping_pong(0), 0);
+        assert_eq!(ping_pong(65_535), 65_535);
+        assert_eq!(ping_pong(65_536), 65_535);
+        assert_eq!(ping_pong(131_071), 0);
+        assert_eq!(ping_pong(131_072), 0, "and again");
+    }
+
+    #[test]
+    fn noise_is_smooth_and_deterministic() {
+        assert_eq!(smooth_noise(7, 1234, 100), smooth_noise(7, 1234, 100));
+        // At each step it sits exactly on the step's random value…
+        assert_eq!(smooth_noise(7, 300, 100), hash(7, 3));
+        // …and moves little from one millisecond to the next.
+        for ms in 0..1000 {
+            let a = smooth_noise(7, ms, 100);
+            let b = smooth_noise(7, ms + 1, 100);
+            assert!(a.abs_diff(b) <= 3, "{ms} ms: {a} → {b}");
+        }
+    }
+
+    #[test]
+    fn noise_differs_between_seeds() {
+        let values: [u8; 4] = core::array::from_fn(|seed| smooth_noise(seed as u32, 0, 100));
+        assert!(values.iter().any(|v| *v != values[0]), "got {values:?}");
     }
 
     #[test]

@@ -1,0 +1,2 @@
+# Build output (this crate has its own target/ because it is not a workspace member)
+/target/

@@ -46,6 +46,14 @@
 
 ## Idées pour plus tard
 
+### Boîte à idées : signaux lumineux d'état
+
+- **En attente de configuration** (premier démarrage, avant l'appairage Bluetooth) : une vague **rouge** qui va et vient le long de la barre, façon K2000 (*Larson scanner*).
+- **Première connexion au Wi-Fi** (juste après la configuration Bluetooth) : la même vague, en **bleu**.
+- **Wi-Fi perdu** : le **premier pixel** (3 LEDs) clignote en rouge, le reste de la barre garde ses dernières couleurs.
+
+### Autres idées
+
 - Projet séparé **master/slave** : un master sert de pont (et de *pont Matter*), les slaves le suivent en ESP-NOW. Réutilise `led_core` et `ws2805`.
 - Matter sur Thread.
 - Effets dynamiques et dégradés le long de la barre (façon Hue Gradient).

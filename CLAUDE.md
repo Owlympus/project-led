@@ -5,6 +5,7 @@ Objectif final : chaque lampe apparaît dans l'app **Maison** de l'iPhone via **
 
 ## À lire en début de session
 
+- [docs/mise-en-route.md](docs/mise-en-route.md) : installation, flash, Wi-Fi (à tenir à jour quand la mise en route change)
 - [.claude/ROADMAP.md](.claude/ROADMAP.md) : où on en est, prochaine étape, questions ouvertes
 - [.claude/decisions/](.claude/decisions/README.md) : les ADR (décisions d'architecture et leur pourquoi)
 - [.claude/HARDWARE.md](.claude/HARDWARE.md) : matériel, câblage, pièges

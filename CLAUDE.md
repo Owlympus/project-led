@@ -14,6 +14,8 @@ Objectif final : chaque lampe apparaît dans l'app **Maison** de l'iPhone via **
 
 - **Langue : français** (code, identifiants et commentaires de code en anglais).
 - **Le propriétaire du projet débute en Rust** et utilise ce projet pour apprendre : expliquer les concepts au fur et à mesure (ownership, traits, `no_std`, async…), avancer par petites étapes, privilégier un code lisible à un code astucieux.
+- **Il vient de PHP** : quand c'est utile, comparer avec PHP (traits/interfaces, Composer ↔ Cargo, PHPUnit ↔ `cargo test`…) et expliquer les conventions de Rust qui diffèrent.
+- Conventions retenues : tests unitaires dans le fichier (`#[cfg(test)] mod tests` en bas), dossier `tests/` réservé aux tests de l'API publique.
 - Toute décision structurante → nouvel ADR dans `.claude/decisions/` (voir le modèle) et mise à jour de l'index.
 - Toute étape terminée → entrée dans `.claude/CHANGELOG.md` et mise à jour de `.claude/ROADMAP.md`.
 

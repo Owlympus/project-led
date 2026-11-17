@@ -10,5 +10,6 @@ On ne réécrit pas un ADR accepté : si on change d'avis, on en crée un nouvea
 | [0003](0003-rust-esp-hal-embassy.md) | Rust `no_std` avec esp-hal + Embassy | Accepté | 2026-11-16 |
 | [0004](0004-matter-par-lampe-via-apple-tv.md) | Chaque lampe est un appareil Matter appairé à l'Apple TV | Accepté | 2026-11-16 |
 | [0005](0005-decoupage-en-crates.md) | Découpage du workspace en crates réutilisables | Accepté | 2026-11-16 |
+| [0006](0006-temperature-en-mireds.md) | Températures de blanc en mireds, calculs en entiers | Accepté | 2026-11-16 |
 
 Modèle : [TEMPLATE.md](TEMPLATE.md)

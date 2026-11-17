@@ -1,11 +1,11 @@
 # Feuille de route
 
-**Statut actuel :** étape 1 en cours. Types de couleur, mélange des blancs, HSV et correction gamma écrits et testés dans `led_core`. Reste : les transitions.
-**Prochaine étape :** étape 1 (`led_core`).
+**Statut actuel :** étape 1 terminée (`led_core` : couleurs, blancs, HSV, gamma, transitions ; 34 tests).
+**Prochaine étape :** étape 2 (piloter la bande depuis le C6). Il faut la carte ESP32-C6, la bande et l'adaptateur de niveau.
 
 ## Étapes
 
-- [ ] **1. `led_core` sur Mac** (apprendre les bases de Rust)
+- [x] **1. `led_core` sur Mac** (apprendre les bases de Rust)
   - [x] Supprimer le dépôt git imbriqué `crates/core/.git`
   - [x] Dépôt git dédié à `project-led`
   - [x] Types de couleur : `Rgb` et pixel à 5 canaux `Rgbcct`
@@ -13,10 +13,10 @@
   - [x] Luminosité (`scale`)
   - [x] Teinte / saturation (`Hsv` → `Rgb` via `From`), comme le cluster Matter Color Control
   - [x] Correction gamma 2.2 (`gamma8`, `gamma_corrected`), appliquée en dernier avant la bande
-  - [ ] Transitions douces (interpolation dans le temps)
+  - [x] Transitions douces (`Transition`, avec `Easing` linéaire ou ease-in-out)
   - [x] Tests unitaires (`cargo test -p led_core`)
 - [ ] **2. Piloter la bande depuis le C6**
-  - [ ] Installer la toolchain (`espup` / cible RISC-V, `espflash`)
+  - [ ] Ajouter la cible `riscv32imac-unknown-none-elf` (`rustup`) et installer `espflash` (pas besoin d'`espup` : il ne sert qu'aux puces Xtensa, pas au C6 qui est RISC-V)
   - [ ] Créer le crate `firmware`, faire clignoter une LED
   - [ ] Pilote WS2805 via le périphérique RMT (`ws2805`)
   - [ ] Afficher une couleur et un blanc sur la bande

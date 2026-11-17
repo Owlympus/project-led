@@ -90,6 +90,27 @@ impl Rgbcct {
             gamma8(self.cold),
         )
     }
+
+    /// Mixes this pixel with `other`: `t = 0` gives `self`, `t = 65535`
+    /// gives `other`, in between a blend of both (channel by channel).
+    /// Used by transitions (over time) and gradients (along the strip).
+    pub fn lerp(self, other: Rgbcct, t: u16) -> Self {
+        Self::new(
+            lerp8(self.r, other.r, t),
+            lerp8(self.g, other.g, t),
+            lerp8(self.b, other.b, t),
+            lerp8(self.warm, other.warm, t),
+            lerp8(self.cold, other.cold, t),
+        )
+    }
+}
+
+/// Linear interpolation between `a` (t = 0) and `b` (t = 65535), rounded.
+fn lerp8(a: u8, b: u8, t: u16) -> u8 {
+    const MAX: u32 = u16::MAX as u32;
+    let t = t as u32;
+    let mixed = a as u32 * (MAX - t) + b as u32 * t;
+    ((mixed + MAX / 2) / MAX) as u8
 }
 
 /// Computes `value * brightness / 255`, rounded to the nearest integer.
@@ -103,6 +124,24 @@ pub(crate) fn scale8(value: u8, brightness: u8) -> u8 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn lerp8_endpoints_and_middle() {
+        assert_eq!(lerp8(0, 200, 0), 0);
+        assert_eq!(lerp8(0, 200, u16::MAX), 200);
+        assert_eq!(lerp8(0, 200, u16::MAX / 2), 100);
+        assert_eq!(lerp8(200, 0, u16::MAX / 2), 100);
+        assert_eq!(lerp8(42, 42, 12_345), 42);
+    }
+
+    #[test]
+    fn lerp_mixes_every_channel() {
+        let a = Rgbcct::new(0, 100, 200, 0, 50);
+        let b = Rgbcct::new(200, 100, 0, 100, 50);
+        assert_eq!(a.lerp(b, 0), a);
+        assert_eq!(a.lerp(b, u16::MAX), b);
+        assert_eq!(a.lerp(b, u16::MAX / 2), Rgbcct::new(100, 100, 100, 50, 50));
+    }
 
     #[test]
     fn scale8_keeps_extremes() {

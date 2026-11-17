@@ -91,21 +91,8 @@ impl Transition {
             (elapsed_ms as u64 * PROGRESS_MAX as u64 / self.duration_ms as u64) as Progress;
         let t = self.easing.apply(linear);
 
-        Rgbcct::new(
-            lerp8(self.from.r, self.to.r, t),
-            lerp8(self.from.g, self.to.g, t),
-            lerp8(self.from.b, self.to.b, t),
-            lerp8(self.from.warm, self.to.warm, t),
-            lerp8(self.from.cold, self.to.cold, t),
-        )
+        self.from.lerp(self.to, t)
     }
-}
-
-/// Linear interpolation between `a` (t = 0) and `b` (t = 65535), rounded.
-fn lerp8(a: u8, b: u8, t: Progress) -> u8 {
-    let t = t as u32;
-    let mixed = a as u32 * (PROGRESS_MAX - t) + b as u32 * t;
-    ((mixed + PROGRESS_MAX / 2) / PROGRESS_MAX) as u8
 }
 
 #[cfg(test)]
@@ -115,15 +102,6 @@ mod tests {
     const BLACK: Rgbcct = Rgbcct::OFF;
     const WARM: Rgbcct = Rgbcct::new(0, 0, 0, 200, 0);
     const RED: Rgbcct = Rgbcct::new(255, 0, 0, 0, 0);
-
-    #[test]
-    fn lerp8_endpoints_and_middle() {
-        assert_eq!(lerp8(0, 200, 0), 0);
-        assert_eq!(lerp8(0, 200, u16::MAX), 200);
-        assert_eq!(lerp8(0, 200, u16::MAX / 2), 100);
-        assert_eq!(lerp8(200, 0, u16::MAX / 2), 100);
-        assert_eq!(lerp8(42, 42, 12_345), 42);
-    }
 
     #[test]
     fn easing_endpoints_are_kept() {

@@ -1,7 +1,7 @@
 # Feuille de route
 
 **Statut actuel :** étape 1 terminée ; le code des étapes 2, 3 et 4a compile mais n'a pas encore tourné sur la carte. Le code des étapes 4b (luminosité et couleurs), 4c (sauvegarde en flash), 4d (bouton tactile) et 4e (signaux d'état) compile aussi.
-**Prochaine étape :** les tests sur le matériel dès que la carte arrive ; en attendant, les ambiances de la boîte à idées, ou l'étape 5 (boîtier). La carte (Waveshare ESP32-C6-DEV-KIT-N8) est commandée. Il manque encore la bande et l'adaptateur de niveau.
+**Prochaine étape :** les tests sur le matériel dès que la carte arrive ; en attendant, la suite de l'étape 4f (exposer les ambiances dans l'app Maison). La carte (Waveshare ESP32-C6-DEV-KIT-N8) est commandée. Il manque encore la bande et l'adaptateur de niveau.
 
 ## Étapes
 
@@ -44,6 +44,10 @@
     - [x] `firmware` : envoyer une image pixel par pixel à la bande (`Strip::show`)
     - [x] `firmware` : savoir quand Matter attend l'appairage (`has_fabrics`), rejoint le Wi-Fi ou l'a perdu (tâche utilisateur `WifiWatcher`), et afficher le signal ; compilé, pas encore testé
   - [ ] Sur la vraie carte : vague rouge avant l'appairage, bleue au démarrage, alerte en coupant le Wi-Fi
+  - [ ] **4f.** Ambiances (voir la boîte à idées)
+    - [x] Exposition choisie : **un interrupteur Matter par ambiance** ; premières ambiances : Coucher de soleil, Aurore boréale, Feu de camp
+    - [x] `led_core::ambiance` : les trois ambiances, dessinées pixel par pixel ; outils `gradient_at`, `ping_pong`, `smooth_noise`, `Rgbcct::lerp` ; testés sur Mac
+    - [ ] `firmware` : un interrupteur Matter par ambiance, et leur lien avec la lampe principale (ADR à écrire)
 - [ ] **5. Boîtier** : tube acrylique, diffusion, dissipation thermique
 
 ## Questions ouvertes
@@ -71,7 +75,7 @@ Fait (étape 4e, ADR-0013). Écart : la vague bleue s'affiche à chaque démarra
 
 Matter (et l'app Maison) ne connaît qu'**une couleur par endpoint** : pas de dégradé ni de réglage par pixel (à revérifier avec les nouvelles versions de Matter). Zigbee n'y changerait rien (le dégradé Hue est propriétaire, Maison ne parle pas Zigbee, pas de pile Zigbee mûre en Rust). Pistes, combinables :
 
-- **Ambiances prédéfinies** calculées dans la lampe, pixel par pixel (« Coucher de soleil », « Aurore »…), exposées chacune comme un **interrupteur Matter** en plus : utilisables dans les scènes, automatisations et avec Siri. Alternative : le cluster *Mode Select*, si l'app Maison l'affiche (à vérifier).
+- **(En cours : étape 4f, un interrupteur par ambiance.)** **Ambiances prédéfinies** calculées dans la lampe, pixel par pixel (« Coucher de soleil », « Aurore »…), exposées chacune comme un **interrupteur Matter** en plus : utilisables dans les scènes, automatisations et avec Siri. Alternative : le cluster *Mode Select*, si l'app Maison l'affiche (à vérifier).
 - **Effets autour de la couleur choisie** dans Maison (dégradé, vague, respiration), dans `led_core`.
 - **Plusieurs segments = plusieurs endpoints** (ex. 3 zones de 10 pixels) : natif, mais 3 tuiles pour une barre.
 - **Canal à nous** pour le contrôle fin : page web sur la lampe, ou le projet master/slave.

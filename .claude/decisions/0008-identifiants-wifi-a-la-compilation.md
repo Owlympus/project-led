@@ -1,6 +1,6 @@
 # ADR-0008 : Identifiants Wi-Fi lus à la compilation (provisoire)
 
-- **Statut :** Accepté
+- **Statut :** Remplacé par [ADR-0009](0009-matter-avec-rs-matter-embassy.md) (les identifiants Wi-Fi arrivent par l'appairage Matter)
 - **Date :** 2026-11-17
 
 ## Contexte

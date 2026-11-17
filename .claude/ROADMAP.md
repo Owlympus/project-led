@@ -1,7 +1,7 @@
 # Feuille de route
 
 **Statut actuel :** étape 1 terminée (`led_core` : couleurs, blancs, HSV, gamma, transitions ; 34 tests).
-**Prochaine étape :** tests sur le matériel. Le code des étapes 2 (LED de la carte, bande) et 3 (Wi-Fi) est prêt et compile ; il faut maintenant la carte pour tester, puis la bande. La carte (Waveshare ESP32-C6-DEV-KIT-N8) est commandée. Il manque encore la bande et l'adaptateur de niveau.
+**Prochaine étape :** étape 4b (luminosité et couleurs via Matter), ou les tests sur le matériel dès que la carte arrive. Le code des étapes 2, 3 et 4a est prêt et compile ; il faut maintenant la carte pour tester, puis la bande. La carte (Waveshare ESP32-C6-DEV-KIT-N8) est commandée. Il manque encore la bande et l'adaptateur de niveau.
 
 ## Étapes
 
@@ -24,15 +24,15 @@
   - [x] Encodage WS2805 testé sur Mac : pixel → octets → bits → impulsions (`ws2805::encode`, `ws2805::timing`)
   - [x] Code de la bande via le RMT : `firmware/src/strip.rs` (canal 1, GPIO2, 30 pixels, tampon statique de ~4,8 Ko), avec un test des 5 canaux
   - [ ] Sur la vraie bande : lancer le test des canaux, vérifier l'ordre (RGB, W1/W2) et le nombre de pixels
-- [ ] **3. Wi-Fi**
-  - [x] Code de connexion au réseau 2,4 GHz avec reconnexion automatique et adresse IP par DHCP (`firmware/src/wifi.rs`, `esp-radio` + `embassy-net`), identifiants lus à la compilation (ADR-0008) ; compilé, pas encore testé sur la carte
-  - [ ] Sur la vraie carte : voir l'adresse IP dans les logs, puis vérifier la reconnexion (éteindre et rallumer la box)
+- [x] **3. Wi-Fi**
+  - [x] Connexion au réseau 2,4 GHz, reconnexion, DHCP (`esp-radio` + `embassy-net`). D'abord avec des identifiants lus à la compilation (ADR-0008), puis repris par Matter (ADR-0009) : `wifi.rs` a été retiré.
   - [ ] (optionnel) Petite page web de test / débogage
-- [ ] **4. Matter** (lampe visible dans l'app Maison)
-  - [ ] Intégrer `rs-matter-embassy`, appairage par QR code via BLE
-  - [ ] Clusters On/Off, Level Control, Color Control (teinte/saturation, température)
-  - [ ] Mémorisation du dernier état en flash
-  - [ ] Bouton tactile local
+- [ ] **4. Matter** (lampe visible dans l'app Maison, ADR-0009)
+  - [x] **4a.** `rs-matter-embassy` intégré : appairage par QR code via Bluetooth, Wi-Fi fourni par l'iPhone, lampe **On/Off** qui allume la bande en blanc 3000 K avec un fondu (`firmware/src/matter.rs`) ; compilé, pas encore testé sur la carte
+  - [ ] Sur la vraie carte : appairer avec l'app Maison, allumer / éteindre depuis l'iPhone
+  - [ ] **4b.** Level Control et Color Control (luminosité, teinte/saturation, température), reliés à `led_core`
+  - [ ] **4c.** Mémorisation de l'appairage et du dernier état en flash
+  - [ ] **4d.** Bouton tactile local
 - [ ] **5. Boîtier** : tube acrylique, diffusion, dissipation thermique
 
 ## Questions ouvertes
@@ -42,7 +42,7 @@
 - Génération de l'Apple TV 4K (Thread possible ou non) ?
 - GPIO utilisée pour les données de la bande ? (candidates dans `HARDWARE.md`)
 - Boîtier pas encore défini (tube acrylique, pièces imprimées en 3D, lest dans le pied…). Seule contrainte connue : pas de métal autour de l'antenne.
-- Lampe finale : la C6-Zero (4 Mo) suffit-elle pour le firmware Matter ?
+- Lampe finale : la C6-Zero (4 Mo) suffit-elle pour le firmware Matter ? (A priori oui : ~1,8 Mo en `--release` à l'étape 4a. À revérifier avec la couleur et la flash.)
 
 ## Idées pour plus tard
 

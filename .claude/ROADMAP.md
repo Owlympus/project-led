@@ -22,7 +22,7 @@
   - [x] Code pour la LED RGB de la carte (WS2812 sur GPIO8) via le RMT : `firmware/src/board_led.rs`, compilé mais pas encore testé sur la carte
   - [ ] Voir la LED faire le tour de la roue chromatique sur la vraie carte
   - [x] Encodage WS2805 testé sur Mac : pixel → octets → bits → impulsions (`ws2805::encode`, `ws2805::timing`)
-  - [x] Code de la bande via le RMT : `firmware/src/strip.rs` (canal 1, GPIO2, tampon statique de ~14 Ko), avec un test des 5 canaux
+  - [x] Code de la bande via le RMT : `firmware/src/strip.rs` (canal 1, GPIO2, 30 pixels, tampon statique de ~4,8 Ko), avec un test des 5 canaux
   - [ ] Sur la vraie bande : lancer le test des canaux, vérifier l'ordre (RGB, W1/W2) et le nombre de pixels
 - [ ] **3. Wi-Fi**
   - [ ] Connexion au réseau 2,4 GHz
@@ -36,7 +36,7 @@
 
 ## Questions ouvertes
 
-- Annonce AliExpress : vraie puce WS2805 ? Combien de LEDs par puce ? Consommation en W/m ?
+- Annonce AliExpress : vraie puce WS2805 ? Consommation en W/m ? (Résolu : 1 puce pour 3 LEDs, soit 30 pixels.)
 - Sur la bande reçue : W1 = blanc chaud ou blanc froid ? (`WhiteOrder`)
 - Génération de l'Apple TV 4K (Thread possible ou non) ?
 - GPIO utilisée pour les données de la bande ? (candidates dans `HARDWARE.md`)

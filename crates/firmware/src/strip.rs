@@ -1,8 +1,8 @@
 //! The WS2805 strip, driven by the RMT peripheral.
 //!
 //! Same chain as the on-board LED (`led_core` → `ws2805` → RMT), with 40 bits
-//! per pixel. The RMT needs all the codes of a frame in one array: for 90
-//! pixels that is 3601 codes × 4 bytes ≈ 14 KB. It is too big for the stack,
+//! per pixel. The RMT needs all the codes of a frame in one array: for 30
+//! pixels that is 1201 codes × 4 bytes ≈ 4.8 KB. It is too big for the stack,
 //! so the caller provides a `'static` buffer sized with [`codes_len`].
 
 use esp_hal::Async;

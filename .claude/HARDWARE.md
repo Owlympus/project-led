@@ -5,7 +5,7 @@
 | Élément | Détail | Statut |
 |---|---|---|
 | Microcontrôleur | **Waveshare ESP32-C6-DEV-KIT-N8** (module ESP32-C6-WROOM-1, 8 Mo de flash), voir ci-dessous | ✅ commandé |
-| Bande LED | WS2805 RGBCCT, 12 V, 60 LEDs/m, 1,5 m, IP30 de préférence | 🔍 annonce à vérifier |
+| Bande LED | WS2805 RGBCCT, 12 V, 60 LEDs/m, **1 puce pour 3 LEDs** (20 pixels/m, soit **30 pixels** sur 1,5 m), IP30 de préférence | ✅ choisie (pas de version 1 puce/LED trouvée) |
 | Alimentation | 12 V, puissance = W/m × 1,5 m + 20 à 30 % de marge | ⏳ dépend de la consommation de la bande |
 | Abaisseur de tension | 12 V → 5 V / 3,3 V pour alimenter l'ESP32 | ✅ acheté |
 | Adaptateur de niveau | **74AHCT125** (ou SN74AHCT1G125) alimenté en 5 V, sur la ligne de données | ❌ à acheter |

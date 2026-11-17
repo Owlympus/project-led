@@ -5,6 +5,7 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Les
 ## [Non publié]
 
 ### Retiré
+- 2026-11-17 : `firmware` : réglage `[unstable] build-std` (sans effet sur Rust stable, la bibliothèque de base vient de `rustup target add`) ; phrase fausse à ce sujet corrigée dans `docs/mise-en-route.md`.
 - 2026-11-17 : nettoyage : fichiers du simulateur Wokwi (`wokwi.toml`, `diagram.json`, inutiles sans simulation Bluetooth ni de WS2805) ; dépendances inutilisées du firmware (`critical-section`, `portable-atomic`, `tinyrlibc`) ; mentions périmées dans `CLAUDE.md`, `HARDWARE.md`, le ROADMAP et un commentaire de `matter.rs`.
 
 ### Modifié

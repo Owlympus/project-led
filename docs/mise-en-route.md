@@ -75,7 +75,7 @@ cd crates/firmware
 cargo build
 ```
 
-La première compilation est longue (plusieurs minutes) : Cargo télécharge les dépendances et recompile la bibliothèque de base de Rust pour le C6. Les suivantes ne prennent que quelques secondes.
+La première compilation est longue (plusieurs minutes) : Cargo télécharge et compile toutes les dépendances, nombreuses depuis Matter. Les suivantes ne recompilent que ce qui a changé et ne prennent que quelques secondes. (`cargo clean` efface ces fichiers de compilation, plusieurs Go, quand on veut faire de la place.)
 
 ## 5. Brancher la carte 🧪
 

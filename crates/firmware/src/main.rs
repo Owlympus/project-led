@@ -4,7 +4,7 @@
 //! - **Matter** ([`matter`]): pairing with the Home app over Bluetooth, then
 //!   Wi-Fi and the Apple TV's commands; runs in `main` itself;
 //! - the **strip** ([`strip_task`]): a channel test at startup, then follows
-//!   the on/off requests coming from Matter, with a short fade;
+//!   the lamp's state (on/off, brightness, color) coming from Matter;
 //! - the **dev board's RGB LED** walks around the color wheel, to show the
 //!   firmware is alive ([`board_led_task`]);
 //! - a **heartbeat** message every 2 seconds.
@@ -71,17 +71,15 @@ const STRIP_TEST_LEVEL: u8 = 64;
 /// To check on the real strip with the channel test (see `HARDWARE.md`).
 const STRIP_WHITES: WhiteOrder = WhiteOrder::WarmFirst;
 /// The strip's white LEDs. Typical values: to check on the datasheet.
+/// Matter also uses them as the range of whites the lamp offers.
 const STRIP_WHITE_CHANNELS: WhiteChannels = WhiteChannels::new(
     ColorTemperature::from_kelvin(2700),
     ColorTemperature::from_kelvin(6500),
 );
-/// Color when Matter switches the lamp on, until step 4b brings brightness
-/// and colors: a warm 3000 K white at half brightness.
-const LIGHT_ON_WHITE: ColorTemperature = ColorTemperature::from_kelvin(3000);
-const LIGHT_ON_BRIGHTNESS: u8 = 128;
-/// How long switching on or off takes.
-const FADE_MS: u32 = 400;
-/// Time between two frames during a fade (50 frames per second).
+/// Matter runs the fades itself, but in steps (every 100 ms for colors):
+/// we smooth each step over this time so they don't show (ADR-0010).
+const SMOOTHING_MS: u32 = 100;
+/// Time between two frames while smoothing (50 frames per second).
 const FRAME_MS: u64 = 20;
 
 /// The strip's RMT codes (30 × 40 + 1 codes × 4 bytes ≈ 4.8 KB). A `static`
@@ -155,19 +153,40 @@ fn tx_config() -> TxChannelConfig {
         .with_idle_output_level(Level::Low) // …low (= reset/latch)
 }
 
-/// Drives the strip: the channel test once, then on/off from Matter.
+/// Drives the strip: the channel test once, then follows the lamp's state
+/// sent by Matter (see `matter::LIGHT_CHANGED`).
 #[embassy_executor::task]
 async fn strip_task(mut strip: Strip<'static>) {
     channel_test(&mut strip).await;
 
-    let on_pixel =
-        Rgbcct::from_white(STRIP_WHITE_CHANNELS.mix(LIGHT_ON_WHITE)).scale(LIGHT_ON_BRIGHTNESS);
-    let mut current = Rgbcct::OFF;
+    // Always heading from what is shown towards the latest state.
+    let mut transition = Transition::instant(Rgbcct::OFF);
+    let mut start = Instant::now();
     loop {
-        // Sleeps until Matter sends a request (see `matter::LIGHT_ON`).
-        let on = matter::LIGHT_ON.wait().await;
-        let target = if on { on_pixel } else { Rgbcct::OFF };
-        current = fade(&mut strip, current, target).await;
+        // `as u32`: a transition lasts far less than the 49 days a u32 of
+        // milliseconds can count.
+        let elapsed = start.elapsed().as_millis() as u32;
+        // Show first: when the transition is done, this is its last frame
+        // (exactly the target) before we go to sleep.
+        show(&mut strip, transition.at(elapsed).gamma_corrected()).await;
+
+        let new_state = if transition.is_done(elapsed) {
+            // Nothing moving: sleep until Matter sends something.
+            Some(matter::LIGHT_CHANGED.wait().await)
+        } else {
+            // Moving: next frame, taking a new state if there is one.
+            Timer::after(Duration::from_millis(FRAME_MS)).await;
+            matter::LIGHT_CHANGED.try_take()
+        };
+
+        if let Some(state) = new_state {
+            // Start again from the color shown right now, so a new step
+            // in the middle of the smoothing doesn't jump.
+            let shown = transition.at(start.elapsed().as_millis() as u32);
+            let target = state.pixel(&STRIP_WHITE_CHANNELS);
+            transition = Transition::new(shown, target, SMOOTHING_MS);
+            start = Instant::now();
+        }
     }
 }
 
@@ -188,23 +207,6 @@ async fn channel_test(strip: &mut Strip<'static>) {
         show(strip, pixel).await;
         info!("strip test: {name}");
         Timer::after(Duration::from_secs(1)).await;
-    }
-}
-
-/// Goes smoothly from `from` to `to` over [`FADE_MS`], then returns `to`
-/// (the new current color).
-async fn fade(strip: &mut Strip<'static>, from: Rgbcct, to: Rgbcct) -> Rgbcct {
-    let transition = Transition::new(from, to, FADE_MS);
-    let start = Instant::now();
-    loop {
-        // `as u32`: a fade lasts far less than the 49 days a u32 of
-        // milliseconds can count.
-        let elapsed = start.elapsed().as_millis() as u32;
-        show(strip, transition.at(elapsed).gamma_corrected()).await;
-        if transition.is_done(elapsed) {
-            return to;
-        }
-        Timer::after(Duration::from_millis(FRAME_MS)).await;
     }
 }
 

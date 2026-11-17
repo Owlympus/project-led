@@ -116,7 +116,7 @@ La lampe est un appareil **Matter** ([ADR-0009](../.claude/decisions/0009-matter
 3. Scanner le QR code affiché dans les logs. Si le scan ne marche pas, choisir « Plus d'options » et saisir le code de test **3497-011-2332**.
 4. L'app prévient que l'accessoire n'est **pas certifié** (normal : on utilise les certificats de test de Matter) → **Ajouter quand même**.
 5. L'iPhone transmet le nom et le mot de passe du Wi-Fi à la lampe, qui s'y connecte toute seule. On voit le déroulé dans les logs.
-6. Une fois ajoutée, la lampe « Lampe barre » s'allume et s'éteint depuis l'app : la bande passe en blanc chaud avec un fondu, et les logs affichent `Matter: light on` / `Matter: light off`.
+6. Une fois ajoutée, la lampe « Lampe barre » se pilote depuis l'app : allumage et extinction (avec un fondu), luminosité, couleurs et blancs. Au premier allumage, elle part en blanc chaud (3000 K) à mi-luminosité ; les logs affichent `Matter: light on` / `Matter: light off`.
 
 **Limite actuelle :** rien n'est encore enregistré en flash. Après un redémarrage (ou un nouveau `cargo run`), il faut **supprimer la lampe** de l'app Maison puis refaire l'appairage.
 

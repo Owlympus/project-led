@@ -1,7 +1,7 @@
 # Feuille de route
 
-**Statut actuel :** étape 1 terminée ; le code des étapes 2, 3 et 4a compile mais n'a pas encore tourné sur la carte. Le code de l'étape 4b (luminosité et couleurs) compile aussi.
-**Prochaine étape :** les tests sur le matériel dès que la carte arrive ; en attendant, l'étape 4c (mémorisation en flash). La carte (Waveshare ESP32-C6-DEV-KIT-N8) est commandée. Il manque encore la bande et l'adaptateur de niveau.
+**Statut actuel :** étape 1 terminée ; le code des étapes 2, 3 et 4a compile mais n'a pas encore tourné sur la carte. Le code des étapes 4b (luminosité et couleurs) et 4c (sauvegarde en flash) compile aussi.
+**Prochaine étape :** les tests sur le matériel dès que la carte arrive ; en attendant, l'étape 4d (bouton tactile) ou les ambiances de la boîte à idées. La carte (Waveshare ESP32-C6-DEV-KIT-N8) est commandée. Il manque encore la bande et l'adaptateur de niveau.
 
 ## Étapes
 
@@ -35,7 +35,8 @@
     - [x] `matter.rs` : lampe *Extended Color Light* (Level Control, Color Control, Identify, Scenes) ; la bande suit un `LightState` ; compilé, pas encore testé sur la carte
     - [x] Transitions faites par `rs-matter`, lissées sur 100 ms par la bande (ADR-0010)
   - [ ] Sur la vraie carte : luminosité, couleurs et blancs depuis l'app Maison
-  - [ ] **4c.** Mémorisation de l'appairage et du dernier état en flash
+  - [x] **4c.** Mémorisation de l'appairage et du dernier état en flash : partition NVS, `SeqMapKvBlobStore` (ADR-0011) ; compilé, pas encore testé sur la carte
+  - [ ] Sur la vraie carte : la lampe reste appairée et revient à son dernier état après un redémarrage
   - [ ] **4d.** Bouton tactile local
 - [ ] **5. Boîtier** : tube acrylique, diffusion, dissipation thermique
 
@@ -47,7 +48,8 @@
 - GPIO utilisée pour les données de la bande ? (candidates dans `HARDWARE.md`)
 - Boîtier pas encore défini (tube acrylique, pièces imprimées en 3D, lest dans le pied…). Seule contrainte connue : pas de métal autour de l'antenne.
 - L'app Maison envoie-t-elle les couleurs en teinte/saturation ou en XY ? (Les deux sont gérés, XY via `rs-matter`.) Accepte-t-elle la lampe sans le cluster Groups (ADR-0010) ?
-- Lampe finale : la C6-Zero (4 Mo) suffit-elle pour le firmware Matter ? (A priori oui : ~1,9 Mo en `--release` à l'étape 4b. À revérifier avec la flash.)
+- Lampe finale : la C6-Zero (4 Mo) suffit-elle pour le firmware Matter ? (A priori oui : ~1,9 Mo en `--release` à l'étape 4c.)
+- Les 24 Ko de la partition NVS suffisent-ils aux données Matter ? (ADR-0011)
 
 ## Idées pour plus tard
 

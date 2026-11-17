@@ -141,6 +141,7 @@ async fn main(spawner: Spawner) -> ! {
         peripherals.BT,
         peripherals.RNG,
         peripherals.ADC1,
+        peripherals.FLASH,
     )
     .await
 }

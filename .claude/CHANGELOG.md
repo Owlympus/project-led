@@ -12,6 +12,7 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Les
 - 2026-11-17 : bande à **30 pixels** (1 puce WS2805 pour 3 LEDs) au lieu de 90 : `STRIP_PIXELS`, tampon RMT ramené à ~4,8 Ko ; doc (HARDWARE, ADR-0002, ROADMAP).
 
 ### Ajouté
+- 2026-11-17 : `firmware` : **sauvegarde en flash** des données Matter (appairage, Wi-Fi, dernier état de la lampe) dans la partition NVS, trouvée en lisant la table des partitions ; `SeqMapKvBlobStore` sur `esp-storage` + `BlockingAsync` (ADR-0011) ; doc : effacer la NVS pour repartir de zéro. **Fin du code de l'étape 4c.**
 - 2026-11-17 : `firmware` : lampe **couleur** Matter (*Extended Color Light*) : clusters Level Control, Color Control (teinte/saturation, XY, température), Identify et Scenes ; les trois hooks mettent à jour un `LightState` partagé, que la bande suit avec un lissage de 100 ms ; transitions et fondu on/off de 0,4 s faits par `rs-matter` (ADR-0010) ; réserve des futures Matter à 32 Ko. **Fin du code de l'étape 4b.**
 - 2026-11-17 : doc : boîte à idées « pixels et ambiances » (limites de Matter, ambiances en interrupteurs, segments, canal à nous) dans le ROADMAP.
 - 2026-11-17 : `led_core` : état de la lampe (`LightState` : allumage, luminosité, `LightColor` en teinte/saturation ou température) et son pixel (`LightState::pixel`) ; conversions des échelles Matter 0..=254 (`light::matter_scale`) ; 7 tests. Début de l'étape 4b.
@@ -32,6 +33,7 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Les
 - 2026-11-16 : dépôt git dédié à `project-led` (auparavant le dossier parent `Projects/Rust`), avec un `.gitignore` (`target/`, `.idea/`, `.DS_Store`).
 
 ### Décidé
+- 2026-11-17 : données Matter (appairage, dernier état) sauvegardées dans la partition NVS avec `SeqMapKvBlobStore` (ADR-0011).
 - 2026-11-17 : lampe *Extended Color Light* ; transitions faites par `rs-matter`, lissées par la bande (ADR-0010).
 - 2026-11-17 : le projet s'arrête à la v1 avec la bande WS2805 RGBCCT (RGBW écarté, précision dans l'ADR-0002) ; une bande RGBCW maison à une puce par LED est notée comme idée hors projet dans le ROADMAP.
 - 2026-11-16 : ESP32-C6, bande WS2805 12 V, Rust esp-hal + Embassy, une lampe = un appareil Matter appairé à l'Apple TV, découpage en crates réutilisables (voir les ADR).

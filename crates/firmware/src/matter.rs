@@ -17,19 +17,27 @@
 //! calls them, they update the shared [`LightState`] and wake the strip task
 //! up through [`LIGHT_CHANGED`].
 //!
-//! Limits of this version:
-//! - test certificates: the Home app warns that the lamp is not certified;
-//! - nothing is saved in flash yet (step 4c): after a restart, the lamp must
-//!   be removed from the Home app and paired again.
+//! Everything Matter needs to remember (pairing, Wi-Fi, and the lamp's last
+//! on/off, brightness and color) is saved in the flash's **NVS partition**
+//! (step 4c, ADR-0011): after a restart, the lamp is still in the Home app
+//! and comes back as it was.
+//!
+//! Limit: test certificates, so the Home app warns that the lamp is not
+//! certified.
 
 use core::cell::Cell;
 use core::pin::pin;
 
+use embassy_embedded_hal::adapter::BlockingAsync;
 use embassy_sync::blocking_mutex::Mutex;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::signal::Signal;
-use esp_hal::peripherals::{ADC1, BT, RNG, WIFI};
+use esp_bootloader_esp_idf::partitions::{
+    self, DataPartitionSubType, PARTITION_TABLE_MAX_LEN, PartitionType,
+};
+use esp_hal::peripherals::{ADC1, BT, FLASH, RNG, WIFI};
 use esp_hal::rng::{Trng, TrngSource};
+use esp_storage::FlashStorage;
 use led_core::light::matter_scale;
 use led_core::{ColorTemperature, LightColor, LightState};
 use log::info;
@@ -53,9 +61,10 @@ use rs_matter_embassy::matter::dm::devices::test::{
 };
 use rs_matter_embassy::matter::dm::endpoints::ROOT_ENDPOINT_ID;
 use rs_matter_embassy::matter::dm::{Async, Cluster, Dataver, EmptyHandler, Endpoint, Node};
-use rs_matter_embassy::matter::persist::{DummyKvBlobStore, VENDOR_KEYS_START};
+use rs_matter_embassy::matter::persist::VENDOR_KEYS_START;
 use rs_matter_embassy::matter::utils::init::InitMaybeUninit;
 use rs_matter_embassy::matter::{clusters, devices, with};
+use rs_matter_embassy::persist::SeqMapKvBlobStore;
 use rs_matter_embassy::rand::reseeding_csprng;
 use rs_matter_embassy::stack::MatterStack;
 use rs_matter_embassy::stack::wireless::BTP_BUMP_SIZE;
@@ -131,6 +140,7 @@ pub async fn run(
     bt: BT<'static>,
     rng: RNG<'static>,
     adc1: ADC1<'static>,
+    flash: FLASH<'static>,
 ) -> ! {
     let stack = STACK.uninit().init_with(MatterStack::init(
         &DEVICE_INFO,
@@ -221,8 +231,9 @@ pub async fn run(
         )
         .chain(|e, c| on_light(e, c, &SCENES_CLUSTER), scenes.adapt());
 
-    // No persistence yet (step 4c): a store that saves nothing.
-    let mut store = DummyKvBlobStore;
+    // Matter's saved data lives in the flash's NVS partition. `startup`
+    // reads it back: the pairing, then each cluster's last value.
+    let mut store = flash_store(flash);
     stack
         .startup(&crypto, &mut store)
         .await
@@ -244,6 +255,33 @@ pub async fn run(
     ));
     matter.await.expect("Matter stack stopped");
     unreachable!("the Matter stack never stops without an error")
+}
+
+/// Opens the flash's NVS partition as a key-value store for Matter.
+///
+/// The partition table (written by `espflash` next to the program) says
+/// where NVS is; with the default table, 24 KB at 0x9000. Reading it
+/// instead of hard-coding the address keeps working if the table changes.
+#[allow(
+    clippy::large_stack_frames,
+    reason = "called once from `run`, on main's stack (same exemption); the 3 KB table \
+    buffer is freed as soon as the NVS partition is found"
+)]
+fn flash_store(flash: FLASH<'static>) -> SeqMapKvBlobStore<BlockingAsync<FlashStorage<'static>>> {
+    let mut flash = FlashStorage::new(flash);
+
+    let mut table = [0u8; PARTITION_TABLE_MAX_LEN];
+    let nvs = partitions::read_partition_table(&mut flash, &mut table)
+        .expect("partition table")
+        .find_partition(PartitionType::Data(DataPartitionSubType::Nvs))
+        .expect("partition table")
+        .expect("no NVS partition in the partition table");
+    let range = nvs.offset()..nvs.offset() + nvs.len();
+    info!("Matter: saving to the NVS partition ({range:#x?})");
+
+    // The store is written for async flash; ours is blocking (each write
+    // waits for the chip), `BlockingAsync` adapts one to the other.
+    SeqMapKvBlobStore::new(BlockingAsync::new(flash), range)
 }
 
 /// Whether a request for (`endpoint`, `cluster`) is for `wanted` on the light.

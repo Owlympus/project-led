@@ -118,7 +118,13 @@ La lampe est un appareil **Matter** ([ADR-0009](../.claude/decisions/0009-matter
 5. L'iPhone transmet le nom et le mot de passe du Wi-Fi à la lampe, qui s'y connecte toute seule. On voit le déroulé dans les logs.
 6. Une fois ajoutée, la lampe « Lampe barre » se pilote depuis l'app : allumage et extinction (avec un fondu), luminosité, couleurs et blancs. Au premier allumage, elle part en blanc chaud (3000 K) à mi-luminosité ; les logs affichent `Matter: light on` / `Matter: light off`.
 
-**Limite actuelle :** rien n'est encore enregistré en flash. Après un redémarrage (ou un nouveau `cargo run`), il faut **supprimer la lampe** de l'app Maison puis refaire l'appairage.
+L'appairage et le dernier état de la lampe sont **gardés en flash** ([ADR-0011](../.claude/decisions/0011-sauvegarde-matter-en-flash.md)) : après un redémarrage ou un nouveau `cargo run`, la lampe est toujours dans l'app Maison et revient comme elle était (après le test des canaux).
+
+**Repartir de zéro** (par exemple si la lampe a été supprimée de l'app Maison et n'est plus proposée à l'ajout) : effacer la partition où Matter range ses données, puis relancer `cargo run` pour retrouver le QR code. Avec la table de partitions par défaut, cette partition (NVS) fait 24 Ko à l'adresse 0x9000 :
+
+```bash
+espflash erase-region 0x9000 0x6000
+```
 
 ## 8. Brancher la bande LED 🧪
 
@@ -136,7 +142,7 @@ Au démarrage, le firmware lance un **test des canaux** : toute la bande s'allum
 | `espflash` ne trouve aucun port | Câble charge seule ? Essayer un autre câble, un autre port USB du Mac. |
 | Le flash échoue ou reste bloqué | Passer la carte en mode téléchargement : maintenir **BOOT**, appuyer sur **RESET**, relâcher **BOOT**, puis relancer `cargo run`. |
 | `error[E0463]: can't find crate for core` | La cible n'est pas installée : `rustup target add riscv32imac-unknown-none-elf`. |
-| L'app Maison ne trouve pas la lampe | Bluetooth de l'iPhone activé ? Lampe déjà appairée avant un redémarrage : la supprimer de l'app puis recommencer. |
+| L'app Maison ne trouve pas la lampe | Bluetooth de l'iPhone activé ? Lampe déjà appairée (pas de QR code dans les logs) : la supprimer de l'app, effacer la partition NVS (voir la section 7), puis recommencer. |
 | L'appairage échoue à l'étape du Wi-Fi | Réseau 5 GHz seulement, ou WPA3 seul. |
 | Panique au démarrage de Matter (*bump allocator*) | Augmenter `BUMP_SIZE` dans `firmware/src/matter.rs`. |
 | La bande clignote au hasard | Adaptateur de niveau absent ou masse non commune (voir HARDWARE, *Pièges connus*). |

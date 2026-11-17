@@ -1,7 +1,7 @@
 # Feuille de route
 
-**Statut actuel :** étape 1 terminée (`led_core` : couleurs, blancs, HSV, gamma, transitions ; 34 tests).
-**Prochaine étape :** étape 4b (luminosité et couleurs via Matter), ou les tests sur le matériel dès que la carte arrive. Le code des étapes 2, 3 et 4a est prêt et compile ; il faut maintenant la carte pour tester, puis la bande. La carte (Waveshare ESP32-C6-DEV-KIT-N8) est commandée. Il manque encore la bande et l'adaptateur de niveau.
+**Statut actuel :** étape 1 terminée ; le code des étapes 2, 3 et 4a compile mais n'a pas encore tourné sur la carte. Étape 4b commencée : l'état de la lampe (`LightState`) est prêt dans `led_core`.
+**Prochaine étape :** brancher Level Control et Color Control dans `matter.rs` (suite de 4b), ou les tests sur le matériel dès que la carte arrive. La carte (Waveshare ESP32-C6-DEV-KIT-N8) est commandée. Il manque encore la bande et l'adaptateur de niveau.
 
 ## Étapes
 
@@ -31,6 +31,9 @@
   - [x] **4a.** `rs-matter-embassy` intégré : appairage par QR code via Bluetooth, Wi-Fi fourni par l'iPhone, lampe **On/Off** qui allume la bande en blanc 3000 K avec un fondu (`firmware/src/matter.rs`) ; compilé, pas encore testé sur la carte
   - [ ] Sur la vraie carte : appairer avec l'app Maison, allumer / éteindre depuis l'iPhone
   - [ ] **4b.** Level Control et Color Control (luminosité, teinte/saturation, température), reliés à `led_core`
+    - [x] `led_core::LightState` : allumage, luminosité, couleur (teinte/saturation ou température) → pixel, et conversions des échelles Matter (`matter_scale`)
+    - [ ] `matter.rs` : clusters Level Control et Color Control, la bande suit un `LightState` au lieu d'un `bool`
+    - [ ] Choisir qui fait les transitions : les clusters Matter ou notre fondu (ADR à écrire)
   - [ ] **4c.** Mémorisation de l'appairage et du dernier état en flash
   - [ ] **4d.** Bouton tactile local
 - [ ] **5. Boîtier** : tube acrylique, diffusion, dissipation thermique
@@ -42,6 +45,7 @@
 - Génération de l'Apple TV 4K (Thread possible ou non) ?
 - GPIO utilisée pour les données de la bande ? (candidates dans `HARDWARE.md`)
 - Boîtier pas encore défini (tube acrylique, pièces imprimées en 3D, lest dans le pied…). Seule contrainte connue : pas de métal autour de l'antenne.
+- L'app Maison envoie-t-elle les couleurs en teinte/saturation ou en XY ? Le type d'appareil *Extended Color Light* semble exiger le mode XY : à vérifier en branchant Color Control.
 - Lampe finale : la C6-Zero (4 Mo) suffit-elle pour le firmware Matter ? (A priori oui : ~1,8 Mo en `--release` à l'étape 4a. À revérifier avec la couleur et la flash.)
 
 ## Idées pour plus tard

@@ -12,6 +12,7 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Les
 - 2026-11-17 : bande à **30 pixels** (1 puce WS2805 pour 3 LEDs) au lieu de 90 : `STRIP_PIXELS`, tampon RMT ramené à ~4,8 Ko ; doc (HARDWARE, ADR-0002, ROADMAP).
 
 ### Ajouté
+- 2026-11-17 : `led_core` : état de la lampe (`LightState` : allumage, luminosité, `LightColor` en teinte/saturation ou température) et son pixel (`LightState::pixel`) ; conversions des échelles Matter 0..=254 (`light::matter_scale`) ; 7 tests. Début de l'étape 4b.
 - 2026-11-17 : `firmware` : **Matter** (`matter.rs`, `rs-matter-embassy` en dépendance Git figée) : appairage Bluetooth avec QR code, Wi-Fi fourni par l'iPhone, lampe On/Off ; la bande suit les demandes avec un fondu de 400 ms (`led_core::Transition`) après le test des canaux ; tas porté à 100 Ko ; LED de la carte dans sa propre tâche. `wifi.rs` retiré (ADR-0008 remplacé par ADR-0009).
 - 2026-11-17 : doc : `README.md` et guide d'installation et de mise en route (`docs/mise-en-route.md`) ; boîte à idées des signaux lumineux d'état (vague rouge / bleue, pixel d'alerte Wi-Fi) dans le ROADMAP.
 - 2026-11-17 : `firmware` : Wi-Fi (`wifi.rs`) : connexion au réseau avec reconnexion automatique, adresse IP par DHCP affichée dans les logs (`esp-radio` 1.0 bêta, `embassy-net` 0.9) ; tas de 64 Ko (`esp-alloc`) exigé par le pilote radio ; identifiants `WIFI_SSID` / `WIFI_PASSWORD` lus à la compilation (ADR-0008).

@@ -5,6 +5,7 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Les
 ## [Non publié]
 
 ### Ajouté
+- 2026-11-17 : `firmware` : pilote de la bande (`strip.rs`, canal RMT 1 sur GPIO2, tampon statique `ConstStaticCell` de 90 pixels) et tâche de test des 5 canaux ; conversion impulsions → codes RMT partagée (`pulse_code.rs`). `ws2805` : `strip_bytes` accepte tout itérateur de pixels ; 1 test.
 - 2026-11-17 : `firmware` : la LED RGB de la carte (WS2812, GPIO8) fait le tour de la roue chromatique via le RMT à 80 MHz (`board_led.rs`, `led_core` → `ws2805` → RMT) ; `main.rs` déplacé dans `src/`. `ws2805` : `Pulse::to_ticks` (ns → ticks d'horloge, arrondi) ; 2 tests.
 - 2026-11-17 : `ws2805` : encodage pixel → octets (R, G, B, W1, W2 ; `WhiteOrder` pour l'ordre des blancs) → bits (poids fort en premier) → impulsions, sous forme d'itérateurs ; timings WS2805 (fiche technique) et WS2812 (LED de la carte) ; 10 tests + 1 exemple de doc.
 - 2026-11-17 : crate `firmware` (généré par `esp-generate` 2.0.0, esp-hal 1.2 + Embassy) : deux tâches en parallèle (battement de cœur et tour de la roue chromatique calculé par `led_core`), logs par USB ; hors workspace (ADR-0007).

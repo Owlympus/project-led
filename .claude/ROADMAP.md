@@ -1,7 +1,7 @@
 # Feuille de route
 
 **Statut actuel :** étape 1 terminée (`led_core` : couleurs, blancs, HSV, gamma, transitions ; 34 tests).
-**Prochaine étape :** étape 2 (piloter la bande depuis le C6) : outillage, `firmware`, encodage WS2805 et code de la LED de la carte sont prêts. Il faut maintenant la carte pour tester, puis la bande. La carte (Waveshare ESP32-C6-DEV-KIT-N8) est commandée. Il manque encore la bande et l'adaptateur de niveau.
+**Prochaine étape :** étape 2 (piloter la bande depuis le C6) : outillage, `firmware`, encodage WS2805 et code de la LED de la carte et de la bande sont prêts. Il faut maintenant la carte pour tester, puis la bande. La carte (Waveshare ESP32-C6-DEV-KIT-N8) est commandée. Il manque encore la bande et l'adaptateur de niveau.
 
 ## Étapes
 
@@ -22,8 +22,8 @@
   - [x] Code pour la LED RGB de la carte (WS2812 sur GPIO8) via le RMT : `firmware/src/board_led.rs`, compilé mais pas encore testé sur la carte
   - [ ] Voir la LED faire le tour de la roue chromatique sur la vraie carte
   - [x] Encodage WS2805 testé sur Mac : pixel → octets → bits → impulsions (`ws2805::encode`, `ws2805::timing`)
-  - [ ] Envoi des impulsions par le périphérique RMT (`ws2805`)
-  - [ ] Afficher une couleur et un blanc sur la bande
+  - [x] Code de la bande via le RMT : `firmware/src/strip.rs` (canal 1, GPIO2, tampon statique de ~14 Ko), avec un test des 5 canaux
+  - [ ] Sur la vraie bande : lancer le test des canaux, vérifier l'ordre (RGB, W1/W2) et le nombre de pixels
 - [ ] **3. Wi-Fi**
   - [ ] Connexion au réseau 2,4 GHz
   - [ ] (optionnel) Petite page web de test / débogage

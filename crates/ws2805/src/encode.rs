@@ -10,7 +10,7 @@
 //! use ws2805::{Timing, WhiteOrder, pulses, strip_bytes};
 //!
 //! let pixels = [Rgbcct::new(255, 0, 0, 0, 0); 3];
-//! let wire = pulses(strip_bytes(&pixels, WhiteOrder::WarmFirst), Timing::WS2805);
+//! let wire = pulses(strip_bytes(pixels, WhiteOrder::WarmFirst), Timing::WS2805);
 //! assert_eq!(wire.count(), 3 * 40);
 //! ```
 
@@ -46,10 +46,17 @@ pub const fn ws2812_bytes(color: Rgb) -> [u8; 3] {
 }
 
 /// All the bytes of a WS2805 strip, first pixel first.
-pub fn strip_bytes(pixels: &[Rgbcct], whites: WhiteOrder) -> impl Iterator<Item = u8> {
+///
+/// `pixels` can be anything that yields pixels: an array, `slice.iter().copied()`,
+/// or `core::iter::repeat_n(pixel, count)` to light the whole strip with one
+/// color without storing it 90 times.
+pub fn strip_bytes(
+    pixels: impl IntoIterator<Item = Rgbcct>,
+    whites: WhiteOrder,
+) -> impl Iterator<Item = u8> {
     pixels
-        .iter()
-        .flat_map(move |&pixel| ws2805_bytes(pixel, whites))
+        .into_iter()
+        .flat_map(move |pixel| ws2805_bytes(pixel, whites))
 }
 
 /// The bits of `bytes`, most significant bit first (`true` = 1).
@@ -84,8 +91,14 @@ mod tests {
     #[test]
     fn strip_bytes_follow_the_pixels() {
         let pixels = [PIXEL, Rgbcct::OFF];
-        let bytes: Vec<u8> = strip_bytes(&pixels, WhiteOrder::WarmFirst).collect();
+        let bytes: Vec<u8> = strip_bytes(pixels, WhiteOrder::WarmFirst).collect();
         assert_eq!(bytes, [1, 2, 3, 4, 5, 0, 0, 0, 0, 0]);
+    }
+
+    #[test]
+    fn strip_bytes_accepts_any_iterator() {
+        let uniform = core::iter::repeat_n(PIXEL, 3);
+        assert_eq!(strip_bytes(uniform, WhiteOrder::WarmFirst).count(), 15);
     }
 
     #[test]

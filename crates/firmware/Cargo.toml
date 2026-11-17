@@ -22,7 +22,7 @@ esp-rtos = { version = "0.4.0", features = [
   "log-04",
 ] }
 
-esp-bootloader-esp-idf = { version = "0.6.0", features = ["esp32c6", "log-04"] }
+esp-bootloader-esp-idf = { version = "0.6.0", features = ["embedded-storage", "esp32c6", "log-04"] }
 log                    = "0.4.27"
 
 embassy-executor = { version = "0.10.0", features = ["log"] }
@@ -57,6 +57,13 @@ rs-matter-embassy = { git = "https://github.com/sysgrok/rs-matter-embassy", rev 
   "trouble",
 ] }
 embassy-sync = "0.8"
+
+# Saving Matter's data (pairing, last state) in flash (step 4c, ADR-0011):
+# `esp-storage` reads and writes the flash, `esp-bootloader-esp-idf` (above,
+# with `embedded-storage`) finds the NVS partition, and `embassy-embedded-hal`
+# turns the blocking flash into the async one the Matter store expects.
+esp-storage          = { version = "0.10.0", features = ["esp32c6", "embedded-storage"] }
+embassy-embedded-hal = "0.6.0"
 
 led_core = { path = "../core" }
 ws2805   = { path = "../ws2805" }

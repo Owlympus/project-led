@@ -1492,6 +1492,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba0e487f6843419bb085d871f6e860da1bb8c267ce1c5db1051b83882e943054"
 dependencies = [
  "document-features",
+ "embedded-storage",
  "esp-config",
  "esp-hal-procmacros",
  "esp-metadata-generated",
@@ -1740,6 +1741,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6ef0e785f54e316f64a1e14a7a2f061a2ea0b038b284902ca71e1e1f5574cf47"
 dependencies = [
  "document-features",
+ "embedded-storage",
  "esp-hal",
  "esp-hal-procmacros",
  "esp-metadata-generated",
@@ -1995,6 +1997,7 @@ checksum = "1c66915cc5391097de7a2b0b972e8505aa33c0df401fd3a6811dbdb32881ba48"
 name = "firmware"
 version = "0.1.0"
 dependencies = [
+ "embassy-embedded-hal",
  "embassy-executor",
  "embassy-sync 0.8.0",
  "embassy-time",
@@ -2006,6 +2009,7 @@ dependencies = [
  "esp-println",
  "esp-radio",
  "esp-rtos",
+ "esp-storage",
  "led_core",
  "log",
  "rs-matter-embassy",

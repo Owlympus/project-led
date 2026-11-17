@@ -12,6 +12,7 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Les
 - 2026-11-17 : bande à **30 pixels** (1 puce WS2805 pour 3 LEDs) au lieu de 90 : `STRIP_PIXELS`, tampon RMT ramené à ~4,8 Ko ; doc (HARDWARE, ADR-0002, ROADMAP).
 
 ### Ajouté
+- 2026-11-17 : `firmware` : **signaux d'état** sur la bande : vague rouge tant que la lampe n'est pas appairée (`has_fabrics`), bleue tant que le Wi-Fi n'est pas venu depuis le démarrage, premier pixel qui clignote si le Wi-Fi est perdu ; Wi-Fi suivi par une tâche utilisateur Matter (`WifiWatcher`, drapeau baissé dans `Drop`) ; `watch_status` à côté de la pile (`select`) ; la bande dessine une image complète par trame (`Strip::show`, `Scene`) (ADR-0013). **Fin du code de l'étape 4e.**
 - 2026-11-17 : `led_core` : effets pixel par pixel (`effect`) : vague aller-retour façon K2000 (`Scanner`, tête qui glisse entre deux pixels, traîne qui s'estompe), clignotement (`blink_on`) et signaux d'état (`StatusSignal` : attente d'appairage en rouge, connexion au Wi-Fi en bleu, Wi-Fi perdu sur le premier pixel) ; 9 tests. Début de l'étape 4e.
 - 2026-11-17 : `firmware` : **bouton tactile** TTP223 (`button.rs`, GPIO3) : un appui bascule la lampe via le cluster On/Off de Matter (`OnOffHooks::run`, l'app Maison suit) ; maintenu 5 s à la mise sous tension, il efface la partition NVS (oubli de l'appairage) (ADR-0012) ; câblage dans `HARDWARE.md`. **Fin du code de l'étape 4d.**
 - 2026-11-17 : `firmware` : **sauvegarde en flash** des données Matter (appairage, Wi-Fi, dernier état de la lampe) dans la partition NVS, trouvée en lisant la table des partitions ; `SeqMapKvBlobStore` sur `esp-storage` + `BlockingAsync` (ADR-0011) ; doc : effacer la NVS pour repartir de zéro. **Fin du code de l'étape 4c.**
@@ -35,6 +36,7 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Les
 - 2026-11-16 : dépôt git dédié à `project-led` (auparavant le dossier parent `Projects/Rust`), avec un `.gitignore` (`target/`, `.idea/`, `.DS_Store`).
 
 ### Décidé
+- 2026-11-17 : signaux d'état : appairage via `has_fabrics`, Wi-Fi via une tâche utilisateur Matter ; vague bleue à chaque démarrage tant que le Wi-Fi n'est pas là (ADR-0013).
 - 2026-11-17 : bouton tactile TTP223 : appui = bascule via Matter, maintien 5 s au démarrage = oubli de l'appairage ; appui long en fonctionnement en repli si le TTP223 ne détecte pas le doigt au démarrage (ADR-0012).
 - 2026-11-17 : données Matter (appairage, dernier état) sauvegardées dans la partition NVS avec `SeqMapKvBlobStore` (ADR-0011).
 - 2026-11-17 : lampe *Extended Color Light* ; transitions faites par `rs-matter`, lissées par la bande (ADR-0010).

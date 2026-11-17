@@ -57,6 +57,8 @@ rs-matter-embassy = { git = "https://github.com/sysgrok/rs-matter-embassy", rev 
   "trouble",
 ] }
 embassy-sync = "0.8"
+# `select`: wait for whichever of two things happens first.
+embassy-futures = "0.1.2"
 
 # Saving Matter's data (pairing, last state) in flash (step 4c, ADR-0011):
 # `esp-storage` reads and writes the flash, `esp-bootloader-esp-idf` (above,

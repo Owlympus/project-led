@@ -25,6 +25,9 @@
 //! Holding the touch button at power-up erases that partition: the lamp
 //! forgets its pairing and waits to be added again (step 4d, ADR-0012).
 //!
+//! The **ambiances** (step 4f, ADR-0014) are extra switches on the same
+//! lamp, one per ambiance (endpoints 2, 3, 4): [`AmbianceSwitch`].
+//!
 //! The strip also shows the connection's **status signals** (step 4e,
 //! ADR-0013): [`watch_status`] picks the one to show and sends it through
 //! [`STATUS_CHANGED`].
@@ -51,7 +54,7 @@ use esp_hal::peripherals::{ADC1, BT, FLASH, RNG, WIFI};
 use esp_hal::rng::{Trng, TrngSource};
 use esp_storage::FlashStorage;
 use led_core::light::matter_scale;
-use led_core::{ColorTemperature, LightColor, LightState, StatusSignal};
+use led_core::{Ambiance, ColorTemperature, LightColor, LightState, StatusSignal};
 use log::{info, warn};
 use rs_matter_embassy::matter::Matter;
 use rs_matter_embassy::matter::basic_info::BasicInfoConfig;
@@ -71,9 +74,11 @@ use rs_matter_embassy::matter::dm::clusters::desc::{self, ClusterHandler as _};
 use rs_matter_embassy::matter::dm::clusters::gen_diag::NetifDiag;
 use rs_matter_embassy::matter::dm::clusters::identify::{self, IdentifyHandler};
 use rs_matter_embassy::matter::dm::clusters::scenes::{ScenesHandler, ScenesState};
-use rs_matter_embassy::matter::dm::devices::DEV_TYPE_EXTENDED_COLOR_LIGHT;
 use rs_matter_embassy::matter::dm::devices::test::{
     DAC_PRIVKEY, TEST_DEV_ATT, TEST_DEV_COMM, TEST_DEV_DET,
+};
+use rs_matter_embassy::matter::dm::devices::{
+    DEV_TYPE_EXTENDED_COLOR_LIGHT, DEV_TYPE_ON_OFF_LIGHT,
 };
 use rs_matter_embassy::matter::dm::endpoints::ROOT_ENDPOINT_ID;
 use rs_matter_embassy::matter::dm::networks::NetChangeNotif;
@@ -106,9 +111,26 @@ static LIGHT: Mutex<CriticalSectionRawMutex, Cell<LightState>> =
 /// latest value: during a fast transition the strip just sees the last step.
 pub static LIGHT_CHANGED: Signal<CriticalSectionRawMutex, LightState> = Signal::new();
 
-/// A tap on the touch button: the On/Off cluster turns it into a toggle
-/// (see [`OnOffLight::run`]), exactly as if the Home app had asked.
-pub static BUTTON_TOGGLE: Signal<CriticalSectionRawMutex, ()> = Signal::new();
+/// A request for the main light that doesn't come from the network. The
+/// On/Off cluster applies it exactly as if the Home app had asked (see
+/// [`OnOffLight::run`]).
+#[derive(Debug, Clone, Copy)]
+pub enum LightRequest {
+    /// A tap on the touch button.
+    Toggle,
+    /// An ambiance was switched on while the lamp was off.
+    On,
+}
+pub static LIGHT_REQUEST: Signal<CriticalSectionRawMutex, LightRequest> = Signal::new();
+
+/// One per ambiance switch (same order as [`Ambiance::ALL`]): tells its
+/// On/Off cluster to *show* on or off in the Home app, without switching
+/// anything (see [`AmbianceSwitch::run`]).
+///
+/// `[const { … }; N]` builds an array of N values that can't be copied
+/// (a `Signal` can't): the block is evaluated once per element.
+static AMBIANCE_SWITCH_SHOWS: [Signal<CriticalSectionRawMutex, bool>; 3] =
+    [const { Signal::new() }; 3];
 
 /// The status signal to show on the strip (`None`: just the lamp's color).
 /// Sent only when it changes.
@@ -127,14 +149,39 @@ const STATUS_POLL: Duration = Duration::from_millis(250);
 ///
 /// `impl FnOnce(&mut LightState)` means "any closure that modifies a
 /// `LightState`", a bit like a PHP `callable` with a typed parameter.
-fn update_light(change: impl FnOnce(&mut LightState)) {
-    let state = LIGHT.lock(|cell| {
-        let mut state = cell.get();
-        change(&mut state);
-        cell.set(state);
-        state
+///
+/// Returns the state *before* the change, so the caller can see what it
+/// replaced (an ambiance, say).
+fn update_light(change: impl FnOnce(&mut LightState)) -> LightState {
+    let (before, after) = LIGHT.lock(|cell| {
+        let before = cell.get();
+        let mut after = before;
+        change(&mut after);
+        cell.set(after);
+        (before, after)
     });
-    LIGHT_CHANGED.signal(state);
+    LIGHT_CHANGED.signal(after);
+    before
+}
+
+/// After `before` was replaced: if it had an ambiance and the new state
+/// doesn't show it any more, its switch shows "off" in the Home app.
+fn ambiance_left(before: &LightState) {
+    let now = LIGHT.lock(Cell::get);
+    if let Some(ambiance) = before.ambiance
+        && now.ambiance != Some(ambiance)
+    {
+        info!("ambiance off: {}", ambiance.name());
+        AMBIANCE_SWITCH_SHOWS[switch_index(ambiance)].signal(false);
+    }
+}
+
+/// Position of `ambiance` in [`Ambiance::ALL`] (and of its switch).
+fn switch_index(ambiance: Ambiance) -> usize {
+    Ambiance::ALL
+        .iter()
+        .position(|candidate| *candidate == ambiance)
+        .expect("every ambiance is in Ambiance::ALL")
 }
 
 /// Memory for the stack's internal futures, on top of the stack itself.
@@ -156,6 +203,10 @@ const DEVICE_INFO: BasicInfoConfig = BasicInfoConfig {
 /// Endpoint 0 is reserved for Matter's own system clusters: the light is on
 /// endpoint 1.
 const LIGHT_ENDPOINT_ID: u16 = 1;
+
+/// The ambiance switches: endpoints 2, 3 and 4, in the order of
+/// [`Ambiance::ALL`] (Sunset, Aurora, Campfire).
+const AMBIANCE_ENDPOINT_IDS: [u16; 3] = [2, 3, 4];
 
 /// How many scenes the lamp can remember (scenes are part of the Extended
 /// Color Light device type).
@@ -223,6 +274,21 @@ pub async fn run(
     )
     .with_scene_invalidator(&scenes_state);
 
+    // One On/Off cluster per ambiance switch, on its own endpoint. They
+    // stand alone (no brightness or color of their own).
+    let ambiance_switches = core::array::from_fn::<_, 3, _>(|index| {
+        on_off::OnOffHandler::new_standalone(
+            Dataver::new_rand(&mut weak_rand),
+            AMBIANCE_ENDPOINT_IDS[index],
+            VENDOR_KEYS_START + 0x20 + index as u16,
+            AmbianceSwitch {
+                ambiance: Ambiance::ALL[index],
+                index,
+            },
+        )
+    });
+    let [sunset, aurora, campfire] = &ambiance_switches;
+
     // The clusters work together: switching on with a fade goes through the
     // level, and colors can be refused while the lamp is off.
     on_off.init(Some(&level));
@@ -247,12 +313,14 @@ pub async fn run(
                 &mut weak_rand,
             )),
         )
+        // Descriptor and Identify answer for every endpoint but the root
+        // (handled above): the light and the ambiance switches.
         .chain(
-            |e, c| on_light(e, c, &desc::DescHandler::CLUSTER),
+            |_, c| c == desc::DescHandler::CLUSTER.id,
             Async(desc::DescHandler::new(Dataver::new_rand(&mut weak_rand)).adapt()),
         )
         .chain(
-            |e, c| on_light(e, c, &identify::CLUSTER),
+            |_, c| c == identify::CLUSTER.id,
             Async(IdentifyHandler::new(Dataver::new_rand(&mut weak_rand)).adapt()),
         )
         .chain(
@@ -267,7 +335,10 @@ pub async fn run(
             |e, c| on_light(e, c, &ColorLight::CLUSTER),
             Async(color_control::HandlerAdaptor(&color)),
         )
-        .chain(|e, c| on_light(e, c, &SCENES_CLUSTER), scenes.adapt());
+        .chain(|e, c| on_light(e, c, &SCENES_CLUSTER), scenes.adapt())
+        .chain(on_ambiance::<2>, Async(on_off::HandlerAdaptor(sunset)))
+        .chain(on_ambiance::<3>, Async(on_off::HandlerAdaptor(aurora)))
+        .chain(on_ambiance::<4>, Async(on_off::HandlerAdaptor(campfire)));
 
     // Matter's saved data lives in the flash's NVS partition. `startup`
     // reads it back: the pairing, then each cluster's last value.
@@ -422,8 +493,19 @@ fn on_light(endpoint: u16, cluster: u32, wanted: &Cluster) -> bool {
     endpoint == LIGHT_ENDPOINT_ID && cluster == wanted.id
 }
 
-/// What the lamp exposes to Matter: the root endpoint (system clusters) and
-/// one Extended Color Light.
+/// Whether a request is for the On/Off cluster of the ambiance switch on
+/// endpoint `E`.
+///
+/// `<const E: u16>` is a *const generic*: the compiler makes one copy of the
+/// function per value used (`on_ambiance::<2>`, `::<3>`…). Each copy is a
+/// plain function, which `chain` accepts, unlike a closure that would
+/// capture the endpoint.
+fn on_ambiance<const E: u16>(endpoint: u16, cluster: u32) -> bool {
+    endpoint == E && cluster == AmbianceSwitch::CLUSTER.id
+}
+
+/// What the lamp exposes to Matter: the root endpoint (system clusters),
+/// one Extended Color Light and one switch per ambiance.
 ///
 /// The device type also asks for the Groups cluster, left out for now: it
 /// needs `rs-matter`'s `groups` feature (multicast), and the Home app should
@@ -443,8 +525,24 @@ const NODE: Node = Node {
                 SCENES_CLUSTER,
             ),
         ),
+        ambiance_endpoint(AMBIANCE_ENDPOINT_IDS[0]),
+        ambiance_endpoint(AMBIANCE_ENDPOINT_IDS[1]),
+        ambiance_endpoint(AMBIANCE_ENDPOINT_IDS[2]),
     ],
 };
+
+/// An ambiance switch's endpoint: an On/Off Light for the Home app.
+const fn ambiance_endpoint(id: u16) -> Endpoint<'static> {
+    Endpoint::new(
+        id,
+        devices!(DEV_TYPE_ON_OFF_LIGHT),
+        clusters!(
+            desc::DescHandler::CLUSTER,
+            identify::CLUSTER,
+            AmbianceSwitch::CLUSTER,
+        ),
+    )
+}
 
 /// Our side of the On/Off cluster. It holds no state: the cluster keeps the
 /// on/off value, we only pass it on.
@@ -478,7 +576,14 @@ impl OnOffHooks for OnOffLight {
 
     fn set_on_off(&self, on: bool) {
         info!("Matter: light {}", if on { "on" } else { "off" });
-        update_light(|light| light.on = on);
+        // Switching the lamp off also leaves its ambiance.
+        let before = update_light(|light| {
+            light.on = on;
+            if !on {
+                light.ambiance = None;
+            }
+        });
+        ambiance_left(&before);
     }
 
     async fn handle_off_with_effect(&self, _effect: EffectVariantEnum) {
@@ -491,8 +596,10 @@ impl OnOffHooks for OnOffLight {
     /// Home app updated). Must never return.
     async fn run<F: Fn(OutOfBandMessage) + MaybeSend>(&self, notify: F) {
         loop {
-            BUTTON_TOGGLE.wait().await;
-            notify(OutOfBandMessage::Toggle);
+            notify(match LIGHT_REQUEST.wait().await {
+                LightRequest::Toggle => OutOfBandMessage::Toggle,
+                LightRequest::On => OutOfBandMessage::On,
+            });
         }
     }
 }
@@ -633,7 +740,64 @@ impl ColorControlHooks for ColorLight {
                 }
             }
         };
-        update_light(|light| light.color = color);
+        // A new color from the Home app leaves the ambiance. (Same color:
+        // nothing changes, e.g. when the cluster restores it at startup.)
+        let before = update_light(|light| {
+            if light.color != color {
+                light.color = color;
+                light.ambiance = None;
+            }
+        });
+        ambiance_left(&before);
         Ok(())
+    }
+}
+
+/// Our side of an ambiance switch's On/Off cluster.
+struct AmbianceSwitch {
+    ambiance: Ambiance,
+    /// Its position in [`Ambiance::ALL`] and [`AMBIANCE_SWITCH_SHOWS`].
+    index: usize,
+}
+
+impl OnOffHooks for AmbianceSwitch {
+    /// Same description as the main light's On/Off cluster.
+    const CLUSTER: Cluster<'static> = OnOffLight::CLUSTER;
+    /// Ambiances always start off after a power cut: the lamp comes back in
+    /// its plain color (ADR-0014).
+    const START_UP_ON_OFF: Option<on_off_cluster::StartUpOnOffEnum> =
+        Some(on_off_cluster::StartUpOnOffEnum::Off);
+
+    fn set_on_off(&self, on: bool) {
+        let ambiance = self.ambiance;
+        if on {
+            info!("ambiance on: {}", ambiance.name());
+            let before = update_light(|light| light.ambiance = Some(ambiance));
+            // Only one ambiance at a time: the previous one's switch goes off.
+            ambiance_left(&before);
+            // An ambiance on a lamp that is off: switch the lamp on too
+            // (through Matter, so the Home app follows and the fade applies).
+            if !before.on {
+                LIGHT_REQUEST.signal(LightRequest::On);
+            }
+        } else {
+            update_light(|light| {
+                if light.ambiance == Some(ambiance) {
+                    light.ambiance = None; // back to the plain color
+                }
+            });
+        }
+    }
+
+    async fn handle_off_with_effect(&self, _effect: EffectVariantEnum) {}
+
+    /// Shows the switch on or off in the Home app when another part of the
+    /// lamp changed the ambiance. `Update` only changes what Matter reports:
+    /// it doesn't call `set_on_off` again (no loop).
+    async fn run<F: Fn(OutOfBandMessage) + MaybeSend>(&self, notify: F) {
+        loop {
+            let on = AMBIANCE_SWITCH_SHOWS[self.index].wait().await;
+            notify(OutOfBandMessage::Update(on));
+        }
     }
 }

@@ -128,6 +128,8 @@ L'appairage et le dernier état de la lampe sont **gardés en flash** ([ADR-0011
 espflash erase-region 0x9000 0x6000
 ```
 
+**Ambiances** ([ADR-0014](../.claude/decisions/0014-interrupteurs-ambiance.md)) : l'accessoire « Lampe barre » contient aussi trois interrupteurs, un par ambiance (dans l'ordre : Coucher de soleil, Aurore boréale, Feu de camp). Les **renommer** dans l'app (Matter ne leur donne pas de nom). En allumer un affiche l'ambiance à la luminosité de la lampe ; changer la couleur de la lampe, ou l'éteindre, quitte l'ambiance.
+
 Avec le bouton tactile, un **appui** allume ou éteint la lampe ; l'app Maison suit.
 
 Si le Wi-Fi tombe, le **premier pixel** de la bande clignote en rouge (log `Wi-Fi: down`) ; le reste garde sa couleur ([ADR-0013](../.claude/decisions/0013-signaux-etat.md)).

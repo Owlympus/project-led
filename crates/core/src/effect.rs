@@ -162,6 +162,17 @@ fn hash(seed: u32, step: u32) -> u8 {
     (x >> 24) as u8
 }
 
+/// Blends a whole frame: each pixel of `to` becomes the mix of the same
+/// pixel of `from` (t = 0) and its own color (t = 65535). Fades from one
+/// picture to another, e.g. from a plain color to an ambiance. If the two
+/// frames differ in length, only the common part is blended.
+pub fn crossfade(from: &[Rgbcct], to: &mut [Rgbcct], t: u16) {
+    // `zip` walks both frames side by side, and stops with the shorter one.
+    for (target, start) in to.iter_mut().zip(from) {
+        *target = start.lerp(*target, t);
+    }
+}
+
 /// The lamp's status signals: what the strip shows when it has something to
 /// say about its connection rather than the color asked by the Home app.
 /// (See the idea box in the ROADMAP.)
@@ -336,6 +347,25 @@ mod tests {
     fn noise_differs_between_seeds() {
         let values: [u8; 4] = core::array::from_fn(|seed| smooth_noise(seed as u32, 0, 100));
         assert!(values.iter().any(|v| *v != values[0]), "got {values:?}");
+    }
+
+    #[test]
+    fn crossfade_goes_from_one_frame_to_the_other() {
+        let from = [RED; 3];
+        let blue = Rgbcct::new(0, 0, 255, 0, 0);
+
+        let mut frame = [blue; 3];
+        crossfade(&from, &mut frame, 0);
+        assert_eq!(frame, from, "start: the old frame");
+
+        let mut frame = [blue; 3];
+        crossfade(&from, &mut frame, u16::MAX);
+        assert_eq!(frame, [blue; 3], "end: the new frame");
+
+        let mut frame = [blue; 3];
+        // 32767 is just before half way: a hair closer to the old frame.
+        crossfade(&from, &mut frame, u16::MAX / 2);
+        assert_eq!(frame[1], Rgbcct::new(128, 0, 127, 0, 0));
     }
 
     #[test]

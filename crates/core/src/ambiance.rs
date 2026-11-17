@@ -61,6 +61,14 @@ impl Ambiance {
         }
     }
 
+    /// Whether the picture changes over time (otherwise one frame is enough).
+    pub const fn is_animated(self) -> bool {
+        match self {
+            Ambiance::Sunset => false,
+            Ambiance::Aurora | Ambiance::Campfire => true,
+        }
+    }
+
     /// Fills `pixels` with the frame at `elapsed_ms`, at full brightness.
     pub fn render(self, elapsed_ms: u32, pixels: &mut [Rgbcct]) {
         let len = pixels.len();
@@ -136,6 +144,13 @@ mod tests {
     fn campfire_pixels_flicker_independently() {
         let pixels = frame(Ambiance::Campfire, 2_000);
         assert!(pixels.iter().any(|p| *p != pixels[0]), "not all the same");
+    }
+
+    #[test]
+    fn only_sunset_is_still() {
+        assert!(!Ambiance::Sunset.is_animated());
+        assert!(Ambiance::Aurora.is_animated());
+        assert!(Ambiance::Campfire.is_animated());
     }
 
     #[test]

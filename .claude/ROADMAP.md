@@ -20,7 +20,8 @@
   - [x] Créer le crate `firmware` (Embassy, logs par USB, `led_core` qui tourne sur la puce), hors workspace (ADR-0007)
   - [ ] Premier flash sur la carte : `espflash board-info` (8 Mo ?), puis `cargo run`
   - [ ] Allumer la LED RGB de la carte (une WS2812 sur GPIO8, à confirmer) avec le périphérique RMT : avant-goût du pilote WS2805
-  - [ ] Pilote WS2805 via le périphérique RMT (`ws2805`)
+  - [x] Encodage WS2805 testé sur Mac : pixel → octets → bits → impulsions (`ws2805::encode`, `ws2805::timing`)
+  - [ ] Envoi des impulsions par le périphérique RMT (`ws2805`)
   - [ ] Afficher une couleur et un blanc sur la bande
 - [ ] **3. Wi-Fi**
   - [ ] Connexion au réseau 2,4 GHz
@@ -35,6 +36,7 @@
 ## Questions ouvertes
 
 - Annonce AliExpress : vraie puce WS2805 ? Combien de LEDs par puce ? Consommation en W/m ?
+- Sur la bande reçue : W1 = blanc chaud ou blanc froid ? (`WhiteOrder`)
 - Génération de l'Apple TV 4K (Thread possible ou non) ?
 - GPIO utilisée pour les données de la bande ? (candidates dans `HARDWARE.md`)
 - Boîtier pas encore défini (tube acrylique, pièces imprimées en 3D, lest dans le pied…). Seule contrainte connue : pas de métal autour de l'antenne.

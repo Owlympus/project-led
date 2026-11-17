@@ -61,6 +61,14 @@ ESP32 GPIO ─► 74AHCT125 (entrée → sortie) ─► 330 Ω ─► bande DIN
 GND : COMMUNE entre l'alim, l'ESP32, le 74AHCT125 et la bande
 ```
 
+## Protocole de la bande (fiche technique WS2805)
+
+- 40 bits par pixel, dans l'ordre **R, G, B, W1, W2**, bit de poids fort en premier.
+- Bit 0 : haut 220 à 380 ns. Bit 1 : haut 580 à 1000 ns. Bas : 580 à 1000 ns dans les deux cas. Période d'un bit ≥ 1,25 µs.
+- Reset (affichage) : ligne basse pendant plus de 280 µs.
+- Valeurs retenues : `ws2805::Timing::WS2805`.
+- **À vérifier sur la bande reçue :** W1 = blanc chaud ou froid ? (`ws2805::WhiteOrder`). L'ordre R, G, B est aussi à confirmer, certains fabricants le changent.
+
 ## Pièges connus
 
 - **Abaisseur de tension ≠ adaptateur de niveau.** L'abaisseur alimente l'ESP32. Le signal de données sort en 3,3 V et doit être remonté à 5 V, sinon on risque des LEDs qui clignotent de façon aléatoire.

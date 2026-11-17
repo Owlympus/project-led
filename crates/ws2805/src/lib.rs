@@ -1,16 +1,22 @@
+//! Driver for WS2805 LED strips (red, green, blue, warm white, cold white).
+//!
+//! The strip uses a single data wire. Each pixel receives 5 bytes (40 bits),
+//! and every bit is sent as a high pulse followed by a low pulse: a short high
+//! pulse means 0, a long one means 1. A long low level ("reset") then tells
+//! every pixel to show what it received.
+//!
+//! This crate is split in two layers:
+//! - [`encode`] and [`timing`]: pixel → bytes → bits → pulses. Pure logic,
+//!   tested on the Mac with `cargo test -p ws2805`;
+//! - *(to come)* sending the pulses with the ESP32-C6 RMT peripheral.
+//!
+//! Pixels must already be gamma corrected (see `led_core::gamma`): this crate
+//! sends values as they are.
+
 #![cfg_attr(not(test), no_std)]
 
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
+pub mod encode;
+pub mod timing;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+pub use encode::{WhiteOrder, bits, pulses, strip_bytes, ws2805_bytes, ws2812_bytes};
+pub use timing::{Pulse, Timing};

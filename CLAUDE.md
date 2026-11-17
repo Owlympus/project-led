@@ -36,7 +36,7 @@ Workspace Cargo (`crates/*`, sauf `firmware`, cf. ADR-0007) :
 | Crate | Rôle | Cible |
 |---|---|---|
 | `led_core` (`crates/core`) | Couleurs, température de blanc, transitions, effets. Indépendant du matériel. | `no_std`, testable sur Mac |
-| `ws2805` (`crates/ws2805`) | Pilote de la bande WS2805 (RGB + blanc chaud + blanc froid) | `no_std` |
+| `ws2805` (`crates/ws2805`) | Pilote de la bande WS2805 (RGB + blanc chaud + blanc froid) : encodage testable sur Mac, envoi RMT à venir | `no_std`, testable sur Mac |
 | `firmware` (`crates/firmware`, **hors workspace**) | Programme du C6 : assemble bande + Wi-Fi + Matter (Embassy) | ESP32-C6 (`riscv32imac`) |
 
 `led_core` et `ws2805` doivent rester réutilisables par un futur projet master/slave (cf. ADR-0005).
@@ -44,7 +44,8 @@ Workspace Cargo (`crates/*`, sauf `firmware`, cf. ADR-0007) :
 ## Commandes
 
 ```bash
-cargo test -p led_core               # tests sur le Mac
+cargo test                           # tous les tests sur le Mac (led_core, ws2805)
+cargo test -p led_core               # les tests d'un seul crate
 cargo clippy -p led_core --all-targets   # analyse du code (lint)
 cargo fmt                            # formatage automatique
 ```

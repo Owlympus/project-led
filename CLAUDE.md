@@ -27,17 +27,17 @@ Objectif final : chaque lampe apparaît dans l'app **Maison** de l'iPhone via **
 - Chaque branche est poussée puis fusionnée dans `main` via une **pull request** sur GitHub (`gh pr create`).
 - Claude ouvre les PR, mais **ne fusionne qu'après le feu vert explicite** du propriétaire. La fusion se fait en squash, en supprimant la branche (`gh pr merge <n> --squash --delete-branch`).
 - Branche principale : `main` (choix confirmé, on ne passe pas à `master`).
-- Avant de commiter : `cargo fmt`, `cargo clippy --all-targets`, `cargo test`.
+- Avant de commiter : `cargo fmt`, `cargo clippy --all-targets`, `cargo test` (à la racine, et `fmt` + `clippy` dans `crates/firmware` s'il a changé).
 
 ## Structure
 
-Workspace Cargo (`crates/*`) :
+Workspace Cargo (`crates/*`, sauf `firmware`, cf. ADR-0007) :
 
 | Crate | Rôle | Cible |
 |---|---|---|
 | `led_core` (`crates/core`) | Couleurs, température de blanc, transitions, effets. Indépendant du matériel. | `no_std`, testable sur Mac |
 | `ws2805` (`crates/ws2805`) | Pilote de la bande WS2805 (RGB + blanc chaud + blanc froid) | `no_std` |
-| *(à venir)* `firmware` | Programme du C6 : assemble bande + Wi-Fi + Matter | ESP32-C6 (`riscv32imac`) |
+| `firmware` (`crates/firmware`, **hors workspace**) | Programme du C6 : assemble bande + Wi-Fi + Matter (Embassy) | ESP32-C6 (`riscv32imac`) |
 
 `led_core` et `ws2805` doivent rester réutilisables par un futur projet master/slave (cf. ADR-0005).
 
@@ -47,4 +47,12 @@ Workspace Cargo (`crates/*`) :
 cargo test -p led_core               # tests sur le Mac
 cargo clippy -p led_core --all-targets   # analyse du code (lint)
 cargo fmt                            # formatage automatique
+```
+
+Firmware (depuis `crates/firmware`, car il est hors workspace) :
+
+```bash
+cargo build                          # compile pour le C6
+cargo run                            # compile, flashe la carte par USB et affiche les logs
+cargo clippy --all-targets && cargo fmt
 ```

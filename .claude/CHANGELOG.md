@@ -5,6 +5,7 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Les
 ## [Non publié]
 
 ### Ajouté
+- 2026-11-17 : crate `firmware` (généré par `esp-generate` 2.0.0, esp-hal 1.2 + Embassy) : deux tâches en parallèle (battement de cœur et tour de la roue chromatique calculé par `led_core`), logs par USB ; hors workspace (ADR-0007).
 - 2026-11-17 : doc : carte de développement Waveshare ESP32-C6-DEV-KIT-N8 dans `HARDWARE.md` (brochage, broches à éviter, alimentation, antenne) ; alternatives Pico 2 W, ESP32 et S3 dans l'ADR-0001.
 - 2026-11-17 : `led_core` : transitions (`Transition::new` / `instant` / `at` / `is_done`) avec `Easing` (`Linear`, `EaseInOut` par défaut) ; le temps écoulé est fourni par l'appelant, sans horloge dans le crate ; 10 tests. **Fin de l'étape 1.**
 - 2026-11-17 : `led_core` : correction gamma 2.2 par table (`gamma8`), méthodes `Rgb::gamma_corrected` et `Rgbcct::gamma_corrected` ; une valeur non nulle reste ≥ 1 pour que la lampe ne s'éteigne pas au minimum ; 6 tests.

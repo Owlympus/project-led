@@ -1,7 +1,7 @@
 # Feuille de route
 
 **Statut actuel :** étape 1 terminée (`led_core` : couleurs, blancs, HSV, gamma, transitions ; 34 tests).
-**Prochaine étape :** étape 2 (piloter la bande depuis le C6). La carte (Waveshare ESP32-C6-DEV-KIT-N8) est commandée. Il manque encore la bande et l'adaptateur de niveau.
+**Prochaine étape :** étape 2 (piloter la bande depuis le C6) : l'outillage et le crate `firmware` sont prêts, il reste la LED de la carte puis la bande. La carte (Waveshare ESP32-C6-DEV-KIT-N8) est commandée. Il manque encore la bande et l'adaptateur de niveau.
 
 ## Étapes
 
@@ -16,8 +16,10 @@
   - [x] Transitions douces (`Transition`, avec `Easing` linéaire ou ease-in-out)
   - [x] Tests unitaires (`cargo test -p led_core`)
 - [ ] **2. Piloter la bande depuis le C6**
-  - [ ] Ajouter la cible `riscv32imac-unknown-none-elf` (`rustup`) et installer `espflash` (pas besoin d'`espup` : il ne sert qu'aux puces Xtensa, pas au C6 qui est RISC-V)
-  - [ ] Créer le crate `firmware`, faire clignoter une LED
+  - [x] Ajouter la cible `riscv32imac-unknown-none-elf` (`rustup`), installer `espflash` et `esp-generate` (pas besoin d'`espup` : il ne sert qu'aux puces Xtensa, pas au C6 qui est RISC-V)
+  - [x] Créer le crate `firmware` (Embassy, logs par USB, `led_core` qui tourne sur la puce), hors workspace (ADR-0007)
+  - [ ] Premier flash sur la carte : `espflash board-info` (8 Mo ?), puis `cargo run`
+  - [ ] Allumer la LED RGB de la carte (une WS2812 sur GPIO8, à confirmer) avec le périphérique RMT : avant-goût du pilote WS2805
   - [ ] Pilote WS2805 via le périphérique RMT (`ws2805`)
   - [ ] Afficher une couleur et un blanc sur la bande
 - [ ] **3. Wi-Fi**

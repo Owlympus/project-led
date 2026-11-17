@@ -1,3 +1,7 @@
 [workspace]
 resolver = "2"
 members = ["crates/*"]
+# The firmware is built for the ESP32-C6 (RISC-V), not for the Mac: it has its
+# own target, toolchain and profiles, so it lives outside the workspace.
+# Build it from its folder: `cd crates/firmware && cargo build`.
+exclude = ["crates/firmware"]

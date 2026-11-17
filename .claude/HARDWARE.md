@@ -41,7 +41,7 @@ Pendant le dev, la carte est alimentée **par l'USB** et la bande par le 12 V. L
 ### Pour la lampe finale
 
 - Candidate plus compacte : **Waveshare ESP32-C6-Zero** (puce C6FH4, **4 Mo** de flash). Il faudra vérifier que le firmware Matter y tient.
-- Antenne : un profilé en aluminium bloquerait l'antenne intégrée. Il faut soit un tube tout acrylique, soit une antenne qui dépasse du profilé.
+- Antenne : quel que soit le boîtier (pas encore défini), éviter le métal autour de l'antenne intégrée. Le plastique et l'acrylique ne gênent pas.
 
 ## Côté maison
 

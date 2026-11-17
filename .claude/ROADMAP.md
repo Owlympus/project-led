@@ -35,7 +35,7 @@
 - Annonce AliExpress : vraie puce WS2805 ? Combien de LEDs par puce ? Consommation en W/m ?
 - Génération de l'Apple TV 4K (Thread possible ou non) ?
 - GPIO utilisée pour les données de la bande ? (candidates dans `HARDWARE.md`)
-- Boîtier tout acrylique ou profilé aluminium ? (impact sur l'antenne)
+- Boîtier pas encore défini (tube acrylique, pièces imprimées en 3D, lest dans le pied…). Seule contrainte connue : pas de métal autour de l'antenne.
 - Lampe finale : la C6-Zero (4 Mo) suffit-elle pour le firmware Matter ?
 
 ## Idées pour plus tard

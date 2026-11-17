@@ -30,7 +30,8 @@
   - GPIO12 et 13, USB ;
   - GPIO16 et 17, UART ;
   - GPIO0 et 1, quartz 32 kHz s'il est utilisé.
-- **Candidates pour les données de la bande :** GPIO2, 3, 6, 7, 10, 11 ou 18 à 23 (choix à faire à l'étape 2).
+- **Données de la bande : GPIO2** (choix provisoire, canal RMT 1). Sur le brochage DevKitC, GPIO2 est en bout de barrette, à côté du 5V et du GND, pratique pour câbler l'adaptateur de niveau ; à confirmer sur la carte Waveshare. Autres candidates : GPIO3, 6, 7, 10, 11, 18 à 23.
+- **LED RGB de la carte : GPIO8** (canal RMT 0).
 
 ### Alimentation pendant le développement
 
@@ -56,7 +57,7 @@ Pendant le dev, la carte est alimentée **par l'USB** et la bande par le 12 V. L
        │   [1000 µF entre +12 V et GND]
        └─► abaisseur ─► 5 V ─► ESP32 (5V) et 74AHCT125 (VCC)
 
-ESP32 GPIO ─► 74AHCT125 (entrée → sortie) ─► 330 Ω ─► bande DIN
+ESP32 GPIO2 ─► 74AHCT125 (entrée → sortie) ─► 330 Ω ─► bande DIN
 
 GND : COMMUNE entre l'alim, l'ESP32, le 74AHCT125 et la bande
 ```
@@ -68,6 +69,7 @@ GND : COMMUNE entre l'alim, l'ESP32, le 74AHCT125 et la bande
 - Reset (affichage) : ligne basse pendant plus de 280 µs.
 - Valeurs retenues : `ws2805::Timing::WS2805`.
 - **À vérifier sur la bande reçue :** W1 = blanc chaud ou froid ? (`ws2805::WhiteOrder`). L'ordre R, G, B est aussi à confirmer, certains fabricants le changent.
+- **Test des canaux :** le firmware allume toute la bande un canal à la fois, 1 s chacun (~25 %), et écrit dans les logs le canal attendu : rouge, vert, bleu, blanc chaud, blanc froid, éteint. Si la bande montre autre chose, l'ordre diffère : changer `STRIP_WHITES` dans `firmware/src/main.rs` (ou l'ordre RGB dans `ws2805`).
 
 ## Pièges connus
 

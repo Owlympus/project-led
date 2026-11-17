@@ -48,15 +48,15 @@ const RMT_FREQUENCY_MHZ: u32 = 80;
 /// The on-board LED is very bright up close: keep it at ~15 %.
 const BOARD_LED_BRIGHTNESS: u8 = 40;
 
-/// 1.5 m at 60 pixels/m. To check on the real strip: some WS2805 strips have
-/// one chip for several LEDs, which would mean fewer pixels.
-const STRIP_PIXELS: usize = 90;
+/// 1.5 m at 60 LEDs/m, with one WS2805 chip per 3 LEDs: 20 pixels/m, so one
+/// pixel every 5 cm. (1 chip per LED would give 90, but our strip doesn't.)
+const STRIP_PIXELS: usize = 30;
 /// ~25 % per channel during tests: safe for any bench power supply.
 const STRIP_TEST_LEVEL: u8 = 64;
 /// To check on the real strip with the channel test (see `HARDWARE.md`).
 const STRIP_WHITES: WhiteOrder = WhiteOrder::WarmFirst;
 
-/// The strip's RMT codes (~14 KB). A `static` lives in RAM for the whole
+/// The strip's RMT codes (30 × 40 + 1 codes × 4 bytes ≈ 4.8 KB). A `static` lives in RAM for the whole
 /// program instead of the small task stack; `ConstStaticCell` hands out the
 /// one and only `&'static mut` to it.
 static STRIP_CODES: ConstStaticCell<[PulseCode; strip::codes_len(STRIP_PIXELS)]> =

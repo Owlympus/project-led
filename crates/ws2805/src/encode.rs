@@ -2,7 +2,7 @@
 //!
 //! Every step is an *iterator*: values are produced one at a time, when the
 //! sender asks for them. Nothing is stored in a big buffer, which matters on a
-//! chip with little memory (90 pixels × 40 bits = 3600 pulses).
+//! chip with little memory (30 pixels × 40 bits = 1200 pulses).
 //!
 //! Typical use, for a whole strip:
 //! ```
@@ -49,7 +49,7 @@ pub const fn ws2812_bytes(color: Rgb) -> [u8; 3] {
 ///
 /// `pixels` can be anything that yields pixels: an array, `slice.iter().copied()`,
 /// or `core::iter::repeat_n(pixel, count)` to light the whole strip with one
-/// color without storing it 90 times.
+/// color without storing it once per pixel.
 pub fn strip_bytes(
     pixels: impl IntoIterator<Item = Rgbcct>,
     whites: WhiteOrder,

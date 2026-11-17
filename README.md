@@ -7,6 +7,7 @@ Une bande LED **RGB + blanc chaud + blanc froid** glissée dans un tube acryliqu
 ![Rust](https://img.shields.io/badge/Rust-no__std-orange?logo=rust)
 ![ESP32-C6](https://img.shields.io/badge/ESP32--C6-RISC--V-blue)
 ![Matter](https://img.shields.io/badge/Matter-Wi--Fi-green)
+![Licence](https://img.shields.io/badge/licence-MIT%20%2F%20Apache--2.0-blue)
 ![Statut](https://img.shields.io/badge/statut-en%20attente%20du%20mat%C3%A9riel-lightgrey)
 
 > **Statut :** le firmware est écrit et compile, la partie indépendante du matériel est testée sur Mac. Les premiers essais sur la vraie carte arrivent dès réception du matériel.
@@ -90,3 +91,12 @@ Le guide complet est dans [docs/mise-en-route.md](docs/mise-en-route.md) : insta
 ## Pourquoi ce projet
 
 C'est un projet personnel, qui sert aussi à **apprendre Rust** sur un vrai cas concret, de l'embarqué `no_std` jusqu'à Matter. Le code est volontairement commenté pour expliquer les concepts au fil de l'eau.
+
+## Licence
+
+Au choix, sous l'une de ces deux licences (comme la plupart des projets Rust) :
+
+- [MIT](LICENSE-MIT)
+- [Apache 2.0](LICENSE-APACHE)
+
+Sauf mention contraire, toute contribution proposée à ce projet est publiée sous ces deux mêmes licences, sans condition supplémentaire.

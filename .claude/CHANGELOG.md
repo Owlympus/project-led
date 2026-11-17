@@ -9,6 +9,7 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Les
 - 2026-11-17 : nettoyage : fichiers du simulateur Wokwi (`wokwi.toml`, `diagram.json`, inutiles sans simulation Bluetooth ni de WS2805) ; dépendances inutilisées du firmware (`critical-section`, `portable-atomic`, `tinyrlibc`) ; mentions périmées dans `CLAUDE.md`, `HARDWARE.md`, le ROADMAP et un commentaire de `matter.rs`.
 
 ### Modifié
+- 2026-11-17 : `README.md` réécrit pour la page GitHub : présentation, fonctionnalités, schéma de fonctionnement (Mermaid), crates, matériel, démarrage rapide et liens vers la documentation.
 - 2026-11-17 : bande à **30 pixels** (1 puce WS2805 pour 3 LEDs) au lieu de 90 : `STRIP_PIXELS`, tampon RMT ramené à ~4,8 Ko ; doc (HARDWARE, ADR-0002, ROADMAP).
 
 ### Ajouté

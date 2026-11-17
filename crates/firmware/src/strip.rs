@@ -58,10 +58,19 @@ impl<'ch> Strip<'ch> {
     /// brightness and gamma correction before (see `led_core`).
     ///
     /// Wait at least `Timing::WS2805.reset_us` before the next frame.
-    /// (Per-pixel frames, for gradients, will come with effects.)
     pub async fn show_all(&mut self, pixel: Rgbcct) -> Result<(), Error> {
         self.send(core::iter::repeat_n(pixel, self.capacity()))
             .await
+    }
+
+    /// Sends one color per pixel (effects, status signals). Pixels beyond
+    /// [`Strip::capacity`] are ignored. As for [`Strip::show_all`], apply
+    /// brightness and gamma correction before.
+    pub async fn show(&mut self, pixels: &[Rgbcct]) -> Result<(), Error> {
+        // `copied()`: the iterator gives `&Rgbcct`, `strip_bytes` wants
+        // `Rgbcct` values (cheap to copy: 5 bytes).
+        let capacity = self.capacity();
+        self.send(pixels.iter().copied().take(capacity)).await
     }
 
     /// Encodes `pixels` into the code buffer and sends it.

@@ -4,7 +4,8 @@
 //! - **Matter** ([`matter`]): pairing with the Home app over Bluetooth, then
 //!   Wi-Fi and the Apple TV's commands; runs in `main` itself;
 //! - the **strip** ([`strip_task`]): a channel test at startup, then follows
-//!   the lamp's state (on/off, brightness, color) coming from Matter;
+//!   the lamp's state (on/off, brightness, color) coming from Matter, with
+//!   the status signals on top (waiting for pairing, Wi-Fi…);
 //! - the **touch button** ([`button`]): a tap switches the lamp on or off;
 //!   held at power-up, it makes the lamp forget its pairing;
 //! - the **dev board's RGB LED** walks around the color wheel, to show the
@@ -36,6 +37,7 @@ mod strip;
 
 use board_led::BoardLed;
 use embassy_executor::Spawner;
+use embassy_futures::select::{Either, select};
 use embassy_time::{Duration, Instant, Timer};
 use esp_backtrace as _; // prints a backtrace over USB if the program panics
 use esp_hal::clock::CpuClock;
@@ -44,7 +46,9 @@ use esp_hal::rmt::{PulseCode, Rmt, TxChannelConfig, TxChannelCreator};
 use esp_hal::time::Rate;
 use esp_hal::timer::timg::TimerGroup;
 use esp_metadata_generated::memory_range;
-use led_core::{ColorTemperature, Hsv, Rgb, Rgbcct, Transition, WhiteChannels};
+use led_core::{
+    ColorTemperature, Hsv, LightState, Rgb, Rgbcct, StatusSignal, Transition, WhiteChannels,
+};
 use log::{error, info};
 use static_cell::ConstStaticCell;
 use strip::Strip;
@@ -168,40 +172,100 @@ fn tx_config() -> TxChannelConfig {
 }
 
 /// Drives the strip: the channel test once, then follows the lamp's state
-/// sent by Matter (see `matter::LIGHT_CHANGED`).
+/// (see `matter::LIGHT_CHANGED`) and shows the status signals on top (see
+/// `matter::STATUS_CHANGED`).
 #[embassy_executor::task]
 async fn strip_task(mut strip: Strip<'static>) {
     channel_test(&mut strip).await;
 
-    // Always heading from what is shown towards the latest state.
-    let mut transition = Transition::instant(Rgbcct::OFF);
-    let mut start = Instant::now();
+    let mut scene = Scene::new();
+    // One frame: 30 pixels × 5 bytes, small enough for the task's stack.
+    let mut frame = [Rgbcct::OFF; STRIP_PIXELS];
     loop {
-        // `as u32`: a transition lasts far less than the 49 days a u32 of
-        // milliseconds can count.
-        let elapsed = start.elapsed().as_millis() as u32;
-        // Show first: when the transition is done, this is its last frame
-        // (exactly the target) before we go to sleep.
-        show(&mut strip, transition.at(elapsed).gamma_corrected()).await;
+        // Draw and send first: when nothing moves any more, this is the last
+        // frame (exactly the target) before we go to sleep.
+        scene.draw(&mut frame);
+        show_frame(&mut strip, &frame).await;
 
-        let new_state = if transition.is_done(elapsed) {
-            // Nothing moving: sleep until Matter sends something.
-            Some(matter::LIGHT_CHANGED.wait().await)
-        } else {
-            // Moving: next frame, taking a new state if there is one.
+        if scene.is_moving() {
+            // Next frame, taking whatever arrived in the meantime.
             Timer::after(Duration::from_millis(FRAME_MS)).await;
-            matter::LIGHT_CHANGED.try_take()
-        };
-
-        if let Some(state) = new_state {
-            // Start again from the color shown right now, so a new step
-            // in the middle of the smoothing doesn't jump.
-            let shown = transition.at(start.elapsed().as_millis() as u32);
-            let target = state.pixel(&STRIP_WHITE_CHANNELS);
-            transition = Transition::new(shown, target, SMOOTHING_MS);
-            start = Instant::now();
+            if let Some(state) = matter::LIGHT_CHANGED.try_take() {
+                scene.light(&state);
+            }
+            if let Some(status) = matter::STATUS_CHANGED.try_take() {
+                scene.status(status);
+            }
+        } else {
+            // Nothing moving: sleep until Matter sends something. `select`
+            // waits for both and returns the first one that happens.
+            match select(matter::LIGHT_CHANGED.wait(), matter::STATUS_CHANGED.wait()).await {
+                Either::First(state) => scene.light(&state),
+                Either::Second(status) => scene.status(status),
+            }
         }
     }
+}
+
+/// What the strip shows: the lamp's color (with its smoothing) and,
+/// sometimes, a status signal on top.
+struct Scene {
+    /// Always heading from what is shown towards the latest state.
+    transition: Transition,
+    transition_start: Instant,
+    status: Option<StatusSignal>,
+    status_start: Instant,
+}
+
+impl Scene {
+    fn new() -> Self {
+        Self {
+            transition: Transition::instant(Rgbcct::OFF),
+            transition_start: Instant::now(),
+            status: None,
+            status_start: Instant::now(),
+        }
+    }
+
+    /// A new state from the Home app (or the button).
+    fn light(&mut self, state: &LightState) {
+        // Start again from the color shown right now, so a new step in the
+        // middle of the smoothing doesn't jump.
+        let shown = self.transition.at(millis_since(self.transition_start));
+        let target = state.pixel(&STRIP_WHITE_CHANNELS);
+        self.transition = Transition::new(shown, target, SMOOTHING_MS);
+        self.transition_start = Instant::now();
+    }
+
+    /// A new status signal, or `None` when everything is fine again.
+    fn status(&mut self, status: Option<StatusSignal>) {
+        self.status = status;
+        // The animation starts from its beginning (first pixel).
+        self.status_start = Instant::now();
+    }
+
+    /// Whether the next frames will differ from this one.
+    fn is_moving(&self) -> bool {
+        self.status.is_some() || !self.transition.is_done(millis_since(self.transition_start))
+    }
+
+    /// Fills `frame` with what to show now, gamma corrected.
+    fn draw(&self, frame: &mut [Rgbcct]) {
+        frame.fill(self.transition.at(millis_since(self.transition_start)));
+        if let Some(status) = self.status {
+            status.render(millis_since(self.status_start), frame);
+        }
+        for pixel in frame.iter_mut() {
+            *pixel = pixel.gamma_corrected();
+        }
+    }
+}
+
+/// Milliseconds since `start`. `as u32`: an animation or a transition never
+/// lasts the 49 days a u32 of milliseconds can count (and if a status signal
+/// did, the animations would simply restart).
+fn millis_since(start: Instant) -> u32 {
+    start.elapsed().as_millis() as u32
 }
 
 /// Lights the whole strip one channel at a time, 1 second each, and logs
@@ -218,7 +282,7 @@ async fn channel_test(strip: &mut Strip<'static>) {
         ("off", Rgbcct::OFF),
     ];
     for (name, pixel) in STEPS {
-        show(strip, pixel).await;
+        show_color(strip, pixel).await;
         info!("strip test: {name}");
         Timer::after(Duration::from_secs(1)).await;
     }
@@ -226,8 +290,16 @@ async fn channel_test(strip: &mut Strip<'static>) {
 
 /// Sends one color to the whole strip, logging (but otherwise ignoring)
 /// errors: a missed frame is not worth stopping the lamp.
-async fn show(strip: &mut Strip<'static>, pixel: Rgbcct) {
+async fn show_color(strip: &mut Strip<'static>, pixel: Rgbcct) {
     if let Err(err) = strip.show_all(pixel).await {
+        error!("strip: {err:?}");
+    }
+}
+
+/// Sends one frame (one color per pixel), logging errors like
+/// [`show_color`].
+async fn show_frame(strip: &mut Strip<'static>, frame: &[Rgbcct]) {
+    if let Err(err) = strip.show(frame).await {
         error!("strip: {err:?}");
     }
 }

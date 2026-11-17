@@ -111,11 +111,11 @@ Pour plus de détails dans les logs : `ESP_LOG=debug cargo run` (le niveau par d
 
 La lampe est un appareil **Matter** ([ADR-0009](../.claude/decisions/0009-matter-avec-rs-matter-embassy.md)). Il faut un concentrateur domestique (ici l'**Apple TV**) et l'iPhone sur le même réseau Wi-Fi **2,4 GHz** (le C6 ne capte pas le 5 GHz ; un réseau qui mélange les deux bandes convient).
 
-1. Lancer `cargo run` et garder les logs ouverts : la lampe attend l'appairage par **Bluetooth**.
+1. Lancer `cargo run` et garder les logs ouverts : la lampe attend l'appairage par **Bluetooth**. Si la bande est branchée, une **vague rouge** va et vient pour le signaler.
 2. Sur l'iPhone, app **Maison** → **+** → **Ajouter un accessoire**.
 3. Scanner le QR code affiché dans les logs. Si le scan ne marche pas, choisir « Plus d'options » et saisir le code de test **3497-011-2332**.
 4. L'app prévient que l'accessoire n'est **pas certifié** (normal : on utilise les certificats de test de Matter) → **Ajouter quand même**.
-5. L'iPhone transmet le nom et le mot de passe du Wi-Fi à la lampe, qui s'y connecte toute seule. On voit le déroulé dans les logs.
+5. L'iPhone transmet le nom et le mot de passe du Wi-Fi à la lampe, qui s'y connecte toute seule. On voit le déroulé dans les logs (`Wi-Fi: up`) ; sur la bande, une **vague bleue** pendant la connexion.
 6. Une fois ajoutée, la lampe « Lampe barre » se pilote depuis l'app : allumage et extinction (avec un fondu), luminosité, couleurs et blancs. Au premier allumage, elle part en blanc chaud (3000 K) à mi-luminosité ; les logs affichent `Matter: light on` / `Matter: light off`.
 
 L'appairage et le dernier état de la lampe sont **gardés en flash** ([ADR-0011](../.claude/decisions/0011-sauvegarde-matter-en-flash.md)) : après un redémarrage ou un nouveau `cargo run`, la lampe est toujours dans l'app Maison et revient comme elle était (après le test des canaux).
@@ -129,6 +129,8 @@ espflash erase-region 0x9000 0x6000
 ```
 
 Avec le bouton tactile, un **appui** allume ou éteint la lampe ; l'app Maison suit.
+
+Si le Wi-Fi tombe, le **premier pixel** de la bande clignote en rouge (log `Wi-Fi: down`) ; le reste garde sa couleur ([ADR-0013](../.claude/decisions/0013-signaux-etat.md)).
 
 ## 8. Brancher la bande LED 🧪
 

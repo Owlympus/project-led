@@ -25,16 +25,25 @@
 //! Holding the touch button at power-up erases that partition: the lamp
 //! forgets its pairing and waits to be added again (step 4d, ADR-0012).
 //!
+//! The strip also shows the connection's **status signals** (step 4e,
+//! ADR-0013): [`watch_status`] picks the one to show and sends it through
+//! [`STATUS_CHANGED`].
+//!
 //! Limit: test certificates, so the Home app warns that the lamp is not
 //! certified.
 
 use core::cell::Cell;
+use core::future::pending;
 use core::pin::pin;
+use core::sync::atomic::{AtomicBool, Ordering};
+
+use embassy_futures::select::{Either, select};
 
 use embassy_embedded_hal::adapter::BlockingAsync;
 use embassy_sync::blocking_mutex::Mutex;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::signal::Signal;
+use embassy_time::{Duration, Timer};
 use esp_bootloader_esp_idf::partitions::{
     self, DataPartitionSubType, PARTITION_TABLE_MAX_LEN, PartitionType,
 };
@@ -42,8 +51,9 @@ use esp_hal::peripherals::{ADC1, BT, FLASH, RNG, WIFI};
 use esp_hal::rng::{Trng, TrngSource};
 use esp_storage::FlashStorage;
 use led_core::light::matter_scale;
-use led_core::{ColorTemperature, LightColor, LightState};
+use led_core::{ColorTemperature, LightColor, LightState, StatusSignal};
 use log::{info, warn};
+use rs_matter_embassy::matter::Matter;
 use rs_matter_embassy::matter::basic_info::BasicInfoConfig;
 use rs_matter_embassy::matter::crypto::{Crypto, default_crypto};
 use rs_matter_embassy::matter::dm::clusters::app::color_control::{
@@ -58,6 +68,7 @@ use rs_matter_embassy::matter::dm::clusters::decl::level_control as level_cluste
 use rs_matter_embassy::matter::dm::clusters::decl::on_off as on_off_cluster;
 use rs_matter_embassy::matter::dm::clusters::decl::scenes_management::FULL_CLUSTER as SCENES_CLUSTER;
 use rs_matter_embassy::matter::dm::clusters::desc::{self, ClusterHandler as _};
+use rs_matter_embassy::matter::dm::clusters::gen_diag::NetifDiag;
 use rs_matter_embassy::matter::dm::clusters::identify::{self, IdentifyHandler};
 use rs_matter_embassy::matter::dm::clusters::scenes::{ScenesHandler, ScenesState};
 use rs_matter_embassy::matter::dm::devices::DEV_TYPE_EXTENDED_COLOR_LIGHT;
@@ -65,15 +76,18 @@ use rs_matter_embassy::matter::dm::devices::test::{
     DAC_PRIVKEY, TEST_DEV_ATT, TEST_DEV_COMM, TEST_DEV_DET,
 };
 use rs_matter_embassy::matter::dm::endpoints::ROOT_ENDPOINT_ID;
+use rs_matter_embassy::matter::dm::networks::NetChangeNotif;
 use rs_matter_embassy::matter::dm::{Async, Cluster, Dataver, EmptyHandler, Endpoint, Node};
+use rs_matter_embassy::matter::error::Error;
 use rs_matter_embassy::matter::persist::VENDOR_KEYS_START;
 use rs_matter_embassy::matter::utils::init::InitMaybeUninit;
 use rs_matter_embassy::matter::utils::sync::MaybeSend;
 use rs_matter_embassy::matter::{clusters, devices, with};
 use rs_matter_embassy::persist::SeqMapKvBlobStore;
 use rs_matter_embassy::rand::reseeding_csprng;
-use rs_matter_embassy::stack::MatterStack;
+use rs_matter_embassy::stack::net::NetStack;
 use rs_matter_embassy::stack::wireless::BTP_BUMP_SIZE;
+use rs_matter_embassy::stack::{MatterStack, UserTask};
 use rs_matter_embassy::wireless::esp::EspWifiRadio;
 use rs_matter_embassy::wireless::{EmbassyWifi, EmbassyWifiNetwork};
 use static_cell::StaticCell;
@@ -95,6 +109,19 @@ pub static LIGHT_CHANGED: Signal<CriticalSectionRawMutex, LightState> = Signal::
 /// A tap on the touch button: the On/Off cluster turns it into a toggle
 /// (see [`OnOffLight::run`]), exactly as if the Home app had asked.
 pub static BUTTON_TOGGLE: Signal<CriticalSectionRawMutex, ()> = Signal::new();
+
+/// The status signal to show on the strip (`None`: just the lamp's color).
+/// Sent only when it changes.
+pub static STATUS_CHANGED: Signal<CriticalSectionRawMutex, Option<StatusSignal>> = Signal::new();
+
+/// Whether the Wi-Fi is up right now, and whether it has been since power-up
+/// (see [`WifiWatcher`]). An `AtomicBool` is a `bool` that several tasks can
+/// read and write safely, without a mutex.
+static WIFI_UP: AtomicBool = AtomicBool::new(false);
+static WIFI_WAS_UP: AtomicBool = AtomicBool::new(false);
+
+/// How often [`watch_status`] looks at the connection.
+const STATUS_POLL: Duration = Duration::from_millis(250);
 
 /// Changes one part of [`LIGHT`] and tells the strip task.
 ///
@@ -262,10 +289,89 @@ pub async fn run(
         &crypto,
         (NODE, handler),
         kv,
-        (), // no extra future to run alongside
+        WifiWatcher, // runs only while the Wi-Fi is up
     ));
-    matter.await.expect("Matter stack stopped");
-    unreachable!("the Matter stack never stops without an error")
+
+    // Run the stack and the status watcher side by side. Neither ends on
+    // its own: the stack only stops on an error (a bug, so we panic).
+    match select(matter, watch_status(stack.matter())).await {
+        Either::First(result) => {
+            result.expect("Matter stack stopped");
+            unreachable!("the Matter stack never stops without an error")
+        }
+        Either::Second(()) => unreachable!("the status watcher never stops"),
+    }
+}
+
+/// Picks the status signal to show, and tells the strip when it changes.
+///
+/// It asks Matter a few times per second rather than waiting for events:
+/// simple, and cheap enough (two flags and a list of fabrics to look at).
+async fn watch_status(matter: &Matter<'_>) {
+    let mut shown = None;
+    loop {
+        // A "fabric" is a Matter network the lamp belongs to; ours is the
+        // Apple TV's. No fabric: not paired yet.
+        let status = if !matter.has_fabrics() {
+            Some(StatusSignal::WaitingForPairing)
+        } else if WIFI_UP.load(Ordering::Relaxed) {
+            None
+        } else if WIFI_WAS_UP.load(Ordering::Relaxed) {
+            Some(StatusSignal::WifiLost)
+        } else {
+            // Paired, Wi-Fi not up yet since power-up: joining it.
+            Some(StatusSignal::JoiningWifi)
+        };
+
+        if status != shown {
+            info!("status signal: {status:?}");
+            STATUS_CHANGED.signal(status);
+            shown = status;
+        }
+        Timer::after(STATUS_POLL).await;
+    }
+}
+
+/// Keeps [`WIFI_UP`] up to date, as a Matter "user task".
+///
+/// `rs-matter` starts this task when the Wi-Fi is up (with an address) and
+/// stops it (drops its future) when the Wi-Fi goes down. So: raise the flag
+/// when it starts, and let [`WifiUp`] lower it when it is dropped.
+struct WifiWatcher;
+
+impl UserTask for WifiWatcher {
+    async fn run<S, N>(&mut self, _net_stack: S, _netif: N) -> Result<(), Error>
+    where
+        S: NetStack,
+        N: NetifDiag + NetChangeNotif,
+    {
+        let _up = WifiUp::new();
+        // Nothing else to do: wait until `rs-matter` stops us.
+        pending().await
+    }
+}
+
+/// While a `WifiUp` exists, [`WIFI_UP`] is `true`.
+///
+/// Its `Drop` runs when the value goes away, whatever the reason (here:
+/// `rs-matter` dropping the task). It is Rust's destructor, like PHP's
+/// `__destruct`, but it runs at a known moment, never "later".
+struct WifiUp;
+
+impl WifiUp {
+    fn new() -> Self {
+        info!("Wi-Fi: up");
+        WIFI_UP.store(true, Ordering::Relaxed);
+        WIFI_WAS_UP.store(true, Ordering::Relaxed);
+        Self
+    }
+}
+
+impl Drop for WifiUp {
+    fn drop(&mut self) {
+        warn!("Wi-Fi: down");
+        WIFI_UP.store(false, Ordering::Relaxed);
+    }
 }
 
 /// Opens the flash's NVS partition as a key-value store for Matter.

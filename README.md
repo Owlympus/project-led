@@ -4,7 +4,7 @@ Une lampe « barre » façon Philips Hue : une bande LED RGB + blanc chaud + bla
 
 Projet personnel, qui sert aussi à apprendre Rust.
 
-- **Démarrer :** [docs/mise-en-route.md](docs/mise-en-route.md) (installation, flash de la carte, Wi-Fi)
+- **Démarrer :** [docs/mise-en-route.md](docs/mise-en-route.md) (installation, flash de la carte, appairage avec l'app Maison)
 - **Où en est le projet :** [.claude/ROADMAP.md](.claude/ROADMAP.md)
 - **Matériel et câblage :** [.claude/HARDWARE.md](.claude/HARDWARE.md)
 - **Décisions d'architecture :** [.claude/decisions/](.claude/decisions/README.md)

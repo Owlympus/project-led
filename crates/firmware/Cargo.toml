@@ -14,7 +14,13 @@ bench = false
 [dependencies]
 esp-hal = { version = "~1.2.2", features = ["esp32c6", "log-04", "unstable"] }
 
-esp-rtos = { version = "0.4.0", features = ["embassy", "esp32c6", "log-04"] }
+esp-rtos = { version = "0.4.0", features = [
+  "embassy",
+  "esp-alloc",
+  "esp-radio",
+  "esp32c6",
+  "log-04",
+] }
 
 esp-bootloader-esp-idf = { version = "0.6.0", features = ["esp32c6", "log-04"] }
 log                    = "0.4.27"
@@ -27,6 +33,24 @@ esp-backtrace = { version = "0.20.0", features = [
   "println",
 ] }
 esp-println = { version = "0.18.0", features = ["esp32c6", "log-04"] }
+
+# Wi-Fi: the radio driver (it needs a heap, provided by esp-alloc) and the
+# network stack (DHCP to get an IP address from the router).
+esp-alloc = { version = "0.11.0", features = ["esp32c6"] }
+esp-radio = { version = "1.0.0-beta.1", features = [
+  "esp-alloc",
+  "esp32c6",
+  "log-04",
+  "unstable",
+  "wifi",
+] }
+embassy-net = { version = "0.9.1", features = [
+  "dhcpv4",
+  "log",
+  "medium-ethernet",
+  "tcp",
+  "udp",
+] }
 
 led_core = { path = "../core" }
 ws2805   = { path = "../ws2805" }

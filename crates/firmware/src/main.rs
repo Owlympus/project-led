@@ -1,9 +1,10 @@
 //! Firmware entry point for the ESP32-C6.
 //!
-//! For now it runs three tasks side by side:
+//! For now it runs several tasks side by side:
 //! - the RGB LED of the dev board walks around the color wheel ([`board_led`]);
 //! - the WS2805 strip lights each channel in turn (red, green, blue, W1, W2),
 //!   to check the channel order of the real strip ([`strip`]);
+//! - Wi-Fi joins the home network and logs its IP address ([`wifi`]);
 //! - a heartbeat message every 2 seconds.
 //!
 //! Everywhere the chain is the same: `led_core` computes the colors, `ws2805`
@@ -24,6 +25,7 @@
 mod board_led;
 mod pulse_code;
 mod strip;
+mod wifi;
 
 use board_led::BoardLed;
 use embassy_executor::Spawner;
@@ -73,12 +75,18 @@ async fn main(spawner: Spawner) -> ! {
     let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
     let peripherals = esp_hal::init(config);
 
+    // A heap (memory allocated at run time, like PHP does for every array):
+    // our code doesn't use one, but the Wi-Fi driver does. 64 KB taken from
+    // RAM the bootloader no longer needs once the program runs.
+    esp_alloc::heap_allocator!(#[esp_hal::ram(reclaimed)] size: 64 * 1024);
+
     // Embassy needs a hardware timer to know when to wake tasks up.
     let timg0 = TimerGroup::new(peripherals.TIMG0);
     esp_rtos::start(timg0.timer0, peripherals.FROM_CPU_INTR0);
     info!("Embassy started");
 
     spawner.spawn(heartbeat().expect("heartbeat task already running"));
+    wifi::start(spawner, peripherals.WIFI);
 
     // The C6's RMT has 2 transmit channels: one for the board LED, one for
     // the strip.

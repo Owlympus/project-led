@@ -1,5 +1,6 @@
 //! Color types: plain RGB, and the 5-channel pixel of a WS2805 strip.
 
+use crate::gamma::gamma8;
 use crate::white::WhiteMix;
 
 /// A color made of red, green and blue, each from 0 (off) to 255 (full).
@@ -25,6 +26,12 @@ impl Rgb {
             g: scale8(self.g, brightness),
             b: scale8(self.b, brightness),
         }
+    }
+
+    /// Returns this color with gamma correction applied to every channel.
+    /// Apply it last, right before sending to the strip (see [`crate::gamma`]).
+    pub fn gamma_corrected(self) -> Self {
+        Self::new(gamma8(self.r), gamma8(self.g), gamma8(self.b))
     }
 }
 
@@ -71,6 +78,18 @@ impl Rgbcct {
             cold: scale8(self.cold, brightness),
         }
     }
+
+    /// Returns this pixel with gamma correction applied to every channel.
+    /// Apply it last, right before sending to the strip (see [`crate::gamma`]).
+    pub fn gamma_corrected(self) -> Self {
+        Self::new(
+            gamma8(self.r),
+            gamma8(self.g),
+            gamma8(self.b),
+            gamma8(self.warm),
+            gamma8(self.cold),
+        )
+    }
 }
 
 /// Computes `value * brightness / 255`, rounded to the nearest integer.
@@ -103,6 +122,18 @@ mod tests {
     fn rgb_scale_dims_every_channel() {
         let orange = Rgb::new(255, 128, 0);
         assert_eq!(orange.scale(128), Rgb::new(128, 64, 0));
+    }
+
+    #[test]
+    fn gamma_corrected_applies_to_every_channel() {
+        assert_eq!(
+            Rgb::new(0, 128, 255).gamma_corrected(),
+            Rgb::new(0, 56, 255)
+        );
+        assert_eq!(
+            Rgbcct::new(255, 128, 0, 128, 255).gamma_corrected(),
+            Rgbcct::new(255, 56, 0, 56, 255)
+        );
     }
 
     #[test]

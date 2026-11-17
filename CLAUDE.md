@@ -25,6 +25,8 @@ Objectif final : chaque lampe apparaît dans l'app **Maison** de l'iPhone via **
 - Une branche par brique : `feat/…` (fonctionnalité), `fix/…` (correction), `docs/…` (documentation). Ex. : `feat/led-core-hsv`.
 - Messages de commit en anglais, préfixés par le crate concerné (`led_core: …`), avec un corps qui liste les changements.
 - Chaque branche est poussée puis fusionnée dans `main` via une **pull request** sur GitHub (`gh pr create`).
+- Claude ouvre les PR, mais **ne fusionne qu'après le feu vert explicite** du propriétaire. La fusion se fait en squash, en supprimant la branche (`gh pr merge <n> --squash --delete-branch`).
+- Branche principale : `main` (choix confirmé, on ne passe pas à `master`).
 - Avant de commiter : `cargo fmt`, `cargo clippy --all-targets`, `cargo test`.
 
 ## Structure

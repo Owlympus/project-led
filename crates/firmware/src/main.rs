@@ -5,6 +5,8 @@
 //!   Wi-Fi and the Apple TV's commands; runs in `main` itself;
 //! - the **strip** ([`strip_task`]): a channel test at startup, then follows
 //!   the lamp's state (on/off, brightness, color) coming from Matter;
+//! - the **touch button** ([`button`]): a tap switches the lamp on or off;
+//!   held at power-up, it makes the lamp forget its pairing;
 //! - the **dev board's RGB LED** walks around the color wheel, to show the
 //!   firmware is alive ([`board_led_task`]);
 //! - a **heartbeat** message every 2 seconds.
@@ -27,6 +29,7 @@
 #![recursion_limit = "256"]
 
 mod board_led;
+mod button;
 mod matter;
 mod pulse_code;
 mod strip;
@@ -36,7 +39,7 @@ use embassy_executor::Spawner;
 use embassy_time::{Duration, Instant, Timer};
 use esp_backtrace as _; // prints a backtrace over USB if the program panics
 use esp_hal::clock::CpuClock;
-use esp_hal::gpio::Level;
+use esp_hal::gpio::{Input, InputConfig, Level, Pull};
 use esp_hal::rmt::{PulseCode, Rmt, TxChannelConfig, TxChannelCreator};
 use esp_hal::time::Rate;
 use esp_hal::timer::timg::TimerGroup;
@@ -135,6 +138,15 @@ async fn main(spawner: Spawner) -> ! {
     let led = BoardLed::new(led_channel, tick_hz);
     spawner.spawn(board_led_task(led).expect("board LED task already running"));
 
+    // GPIO3 → TTP223 touch sensor output. The pull-down keeps the input at
+    // "not touched" if the sensor is unplugged.
+    let mut touch = Input::new(
+        peripherals.GPIO3,
+        InputConfig::default().with_pull(Pull::Down),
+    );
+    let forget_pairing = button::held_at_startup(&mut touch).await;
+    spawner.spawn(button::button_task(touch).expect("button task already running"));
+
     // Last: Matter takes over `main` for good.
     matter::run(
         peripherals.WIFI,
@@ -142,6 +154,7 @@ async fn main(spawner: Spawner) -> ! {
         peripherals.RNG,
         peripherals.ADC1,
         peripherals.FLASH,
+        forget_pairing,
     )
     .await
 }

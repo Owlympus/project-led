@@ -16,5 +16,6 @@ On ne réécrit pas un ADR accepté : si on change d'avis, on en crée un nouvea
 | [0009](0009-matter-avec-rs-matter-embassy.md) | Matter avec `rs-matter-embassy`, lampe d'abord en On/Off | Accepté | 2026-11-17 |
 | [0010](0010-lampe-couleur-matter.md) | Lampe couleur Matter, transitions faites par `rs-matter` | Accepté | 2026-11-17 |
 | [0011](0011-sauvegarde-matter-en-flash.md) | Données Matter sauvegardées dans la partition NVS | Accepté | 2026-11-17 |
+| [0012](0012-bouton-tactile.md) | Bouton tactile : appui = bascule via Matter, maintien au démarrage = oubli de l'appairage | Accepté | 2026-11-17 |
 
 Modèle : [TEMPLATE.md](TEMPLATE.md)

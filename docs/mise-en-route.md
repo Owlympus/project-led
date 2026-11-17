@@ -120,11 +120,15 @@ La lampe est un appareil **Matter** ([ADR-0009](../.claude/decisions/0009-matter
 
 L'appairage et le dernier état de la lampe sont **gardés en flash** ([ADR-0011](../.claude/decisions/0011-sauvegarde-matter-en-flash.md)) : après un redémarrage ou un nouveau `cargo run`, la lampe est toujours dans l'app Maison et revient comme elle était (après le test des canaux).
 
-**Repartir de zéro** (par exemple si la lampe a été supprimée de l'app Maison et n'est plus proposée à l'ajout) : effacer la partition où Matter range ses données, puis relancer `cargo run` pour retrouver le QR code. Avec la table de partitions par défaut, cette partition (NVS) fait 24 Ko à l'adresse 0x9000 :
+**Repartir de zéro** (par exemple si la lampe a été supprimée de l'app Maison et n'est plus proposée à l'ajout) : il faut effacer la partition où Matter range ses données. Deux façons :
+- avec le **bouton tactile** (s'il est branché) : le maintenir en branchant la lampe, et le garder **5 s** jusqu'au message `the pairing will be forgotten` dans les logs ([ADR-0012](../.claude/decisions/0012-bouton-tactile.md)) ;
+- depuis le Mac, puis relancer `cargo run` pour retrouver le QR code. Avec la table de partitions par défaut, cette partition (NVS) fait 24 Ko à l'adresse 0x9000 :
 
 ```bash
 espflash erase-region 0x9000 0x6000
 ```
+
+Avec le bouton tactile, un **appui** allume ou éteint la lampe ; l'app Maison suit.
 
 ## 8. Brancher la bande LED 🧪
 

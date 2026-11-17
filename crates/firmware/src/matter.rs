@@ -22,6 +22,9 @@
 //! (step 4c, ADR-0011): after a restart, the lamp is still in the Home app
 //! and comes back as it was.
 //!
+//! Holding the touch button at power-up erases that partition: the lamp
+//! forgets its pairing and waits to be added again (step 4d, ADR-0012).
+//!
 //! Limit: test certificates, so the Home app warns that the lamp is not
 //! certified.
 
@@ -40,14 +43,16 @@ use esp_hal::rng::{Trng, TrngSource};
 use esp_storage::FlashStorage;
 use led_core::light::matter_scale;
 use led_core::{ColorTemperature, LightColor, LightState};
-use log::info;
+use log::{info, warn};
 use rs_matter_embassy::matter::basic_info::BasicInfoConfig;
 use rs_matter_embassy::matter::crypto::{Crypto, default_crypto};
 use rs_matter_embassy::matter::dm::clusters::app::color_control::{
     self, ColorCapabilitiesBitmap, ColorControlHooks, SetDeviceColor,
 };
 use rs_matter_embassy::matter::dm::clusters::app::level_control::{self, LevelControlHooks};
-use rs_matter_embassy::matter::dm::clusters::app::on_off::{self, EffectVariantEnum, OnOffHooks};
+use rs_matter_embassy::matter::dm::clusters::app::on_off::{
+    self, EffectVariantEnum, OnOffHooks, OutOfBandMessage,
+};
 use rs_matter_embassy::matter::dm::clusters::decl::color_control as color_cluster;
 use rs_matter_embassy::matter::dm::clusters::decl::level_control as level_cluster;
 use rs_matter_embassy::matter::dm::clusters::decl::on_off as on_off_cluster;
@@ -63,6 +68,7 @@ use rs_matter_embassy::matter::dm::endpoints::ROOT_ENDPOINT_ID;
 use rs_matter_embassy::matter::dm::{Async, Cluster, Dataver, EmptyHandler, Endpoint, Node};
 use rs_matter_embassy::matter::persist::VENDOR_KEYS_START;
 use rs_matter_embassy::matter::utils::init::InitMaybeUninit;
+use rs_matter_embassy::matter::utils::sync::MaybeSend;
 use rs_matter_embassy::matter::{clusters, devices, with};
 use rs_matter_embassy::persist::SeqMapKvBlobStore;
 use rs_matter_embassy::rand::reseeding_csprng;
@@ -85,6 +91,10 @@ static LIGHT: Mutex<CriticalSectionRawMutex, Cell<LightState>> =
 /// Wakes the strip task up with the new state. A `Signal` holds only the
 /// latest value: during a fast transition the strip just sees the last step.
 pub static LIGHT_CHANGED: Signal<CriticalSectionRawMutex, LightState> = Signal::new();
+
+/// A tap on the touch button: the On/Off cluster turns it into a toggle
+/// (see [`OnOffLight::run`]), exactly as if the Home app had asked.
+pub static BUTTON_TOGGLE: Signal<CriticalSectionRawMutex, ()> = Signal::new();
 
 /// Changes one part of [`LIGHT`] and tells the strip task.
 ///
@@ -141,6 +151,7 @@ pub async fn run(
     rng: RNG<'static>,
     adc1: ADC1<'static>,
     flash: FLASH<'static>,
+    forget_pairing: bool,
 ) -> ! {
     let stack = STACK.uninit().init_with(MatterStack::init(
         &DEVICE_INFO,
@@ -233,7 +244,7 @@ pub async fn run(
 
     // Matter's saved data lives in the flash's NVS partition. `startup`
     // reads it back: the pairing, then each cluster's last value.
-    let mut store = flash_store(flash);
+    let mut store = flash_store(flash, forget_pairing);
     stack
         .startup(&crypto, &mut store)
         .await
@@ -262,12 +273,18 @@ pub async fn run(
 /// The partition table (written by `espflash` next to the program) says
 /// where NVS is; with the default table, 24 KB at 0x9000. Reading it
 /// instead of hard-coding the address keeps working if the table changes.
+///
+/// With `erase`, the partition is wiped first: the lamp forgets its pairing
+/// and its last state, as on its very first start.
 #[allow(
     clippy::large_stack_frames,
     reason = "called once from `run`, on main's stack (same exemption); the 3 KB table \
     buffer is freed as soon as the NVS partition is found"
 )]
-fn flash_store(flash: FLASH<'static>) -> SeqMapKvBlobStore<BlockingAsync<FlashStorage<'static>>> {
+fn flash_store(
+    flash: FLASH<'static>,
+    erase: bool,
+) -> SeqMapKvBlobStore<BlockingAsync<FlashStorage<'static>>> {
     let mut flash = FlashStorage::new(flash);
 
     let mut table = [0u8; PARTITION_TABLE_MAX_LEN];
@@ -278,6 +295,13 @@ fn flash_store(flash: FLASH<'static>) -> SeqMapKvBlobStore<BlockingAsync<FlashSt
         .expect("no NVS partition in the partition table");
     let range = nvs.offset()..nvs.offset() + nvs.len();
     info!("Matter: saving to the NVS partition ({range:#x?})");
+
+    if erase {
+        warn!("Matter: erasing the NVS partition (pairing forgotten)");
+        flash
+            .erase(range.start, range.end)
+            .expect("erasing the NVS partition");
+    }
 
     // The store is written for async flash; ours is blocking (each write
     // waits for the chip), `BlockingAsync` adapts one to the other.
@@ -353,6 +377,17 @@ impl OnOffHooks for OnOffLight {
 
     async fn handle_off_with_effect(&self, _effect: EffectVariantEnum) {
         // Special "off" animations (fade, dying light…): not for now.
+    }
+
+    /// Runs alongside the cluster, for requests that don't come from the
+    /// network: here, the touch button. `notify` hands them to the cluster,
+    /// which then applies them like a Home app command (fade, saved state,
+    /// Home app updated). Must never return.
+    async fn run<F: Fn(OutOfBandMessage) + MaybeSend>(&self, notify: F) {
+        loop {
+            BUTTON_TOGGLE.wait().await;
+            notify(OutOfBandMessage::Toggle);
+        }
     }
 }
 

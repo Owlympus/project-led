@@ -1,7 +1,7 @@
 # Feuille de route
 
-**Statut actuel :** étape 1 terminée ; le code des étapes 2, 3 et 4a compile mais n'a pas encore tourné sur la carte. Le code des étapes 4b (luminosité et couleurs) et 4c (sauvegarde en flash) compile aussi.
-**Prochaine étape :** les tests sur le matériel dès que la carte arrive ; en attendant, l'étape 4d (bouton tactile) ou les ambiances de la boîte à idées. La carte (Waveshare ESP32-C6-DEV-KIT-N8) est commandée. Il manque encore la bande et l'adaptateur de niveau.
+**Statut actuel :** étape 1 terminée ; le code des étapes 2, 3 et 4a compile mais n'a pas encore tourné sur la carte. Le code des étapes 4b (luminosité et couleurs), 4c (sauvegarde en flash) et 4d (bouton tactile) compile aussi.
+**Prochaine étape :** les tests sur le matériel dès que la carte arrive ; en attendant, les ambiances de la boîte à idées, ou l'étape 5 (boîtier). La carte (Waveshare ESP32-C6-DEV-KIT-N8) est commandée. Il manque encore la bande et l'adaptateur de niveau.
 
 ## Étapes
 
@@ -37,7 +37,8 @@
   - [ ] Sur la vraie carte : luminosité, couleurs et blancs depuis l'app Maison
   - [x] **4c.** Mémorisation de l'appairage et du dernier état en flash : partition NVS, `SeqMapKvBlobStore` (ADR-0011) ; compilé, pas encore testé sur la carte
   - [ ] Sur la vraie carte : la lampe reste appairée et revient à son dernier état après un redémarrage
-  - [ ] **4d.** Bouton tactile local
+  - [x] **4d.** Bouton tactile local (TTP223 sur GPIO3) : appui = bascule via Matter, maintien 5 s au démarrage = oubli de l'appairage (ADR-0012) ; compilé, pas encore testé
+  - [ ] Sur la vraie carte : acheter et brancher le TTP223, vérifier son mode et les deux gestes
 - [ ] **5. Boîtier** : tube acrylique, diffusion, dissipation thermique
 
 ## Questions ouvertes

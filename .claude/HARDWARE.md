@@ -11,7 +11,7 @@
 | Adaptateur de niveau | **74AHCT125** (ou SN74AHCT1G125) alimenté en 5 V, sur la ligne de données | ❌ à acheter |
 | Résistance | ~330 Ω en série sur la ligne de données | ❌ à acheter |
 | Condensateur | ~1000 µF / 16 V minimum, sur l'alimentation de la bande | ❌ à acheter |
-| Bouton | Capteur tactile TTP223 (optionnel, pour un contrôle local) | ❌ plus tard |
+| Bouton | Capteur tactile **TTP223**, alimenté en **3,3 V**, sortie sur GPIO3 (ADR-0012) | ❌ à acheter (code prêt) |
 | Boîtier | Tube acrylique diffusant | ❌ plus tard |
 
 ## Carte de développement : Waveshare ESP32-C6-DEV-KIT-N8
@@ -30,7 +30,8 @@
   - GPIO12 et 13, USB ;
   - GPIO16 et 17, UART ;
   - GPIO0 et 1, quartz 32 kHz s'il est utilisé.
-- **Données de la bande : GPIO2** (choix provisoire, canal RMT 1). Sur le brochage DevKitC, GPIO2 est en bout de barrette, à côté du 5V et du GND, pratique pour câbler l'adaptateur de niveau ; à confirmer sur la carte Waveshare. Autres candidates : GPIO3, 6, 7, 10, 11, 18 à 23.
+- **Données de la bande : GPIO2** (choix provisoire, canal RMT 1). Sur le brochage DevKitC, GPIO2 est en bout de barrette, à côté du 5V et du GND, pratique pour câbler l'adaptateur de niveau ; à confirmer sur la carte Waveshare. Autres candidates : GPIO6, 7, 10, 11, 18 à 23.
+- **Bouton tactile (TTP223) : GPIO3** (choix provisoire, à côté de GPIO2), en entrée avec *pull-down* interne.
 - **LED RGB de la carte : GPIO8** (canal RMT 0).
 
 ### Alimentation pendant le développement
@@ -59,7 +60,9 @@ Pendant le dev, la carte est alimentée **par l'USB** et la bande par le 12 V. L
 
 ESP32 GPIO2 ─► 74AHCT125 (entrée → sortie) ─► 330 Ω ─► bande DIN
 
-GND : COMMUNE entre l'alim, l'ESP32, le 74AHCT125 et la bande
+ESP32 3V3 ─► TTP223 VCC     TTP223 I/O ─► ESP32 GPIO3     TTP223 GND ─► GND
+
+GND : COMMUNE entre l'alim, l'ESP32, le 74AHCT125, le TTP223 et la bande
 ```
 
 ## Protocole de la bande (fiche technique WS2805)
@@ -78,3 +81,5 @@ GND : COMMUNE entre l'alim, l'ESP32, le 74AHCT125 et la bande
 - Le C6 ne capte que le Wi-Fi **2,4 GHz**.
 - Câble USB-C **data**, pas un câble charge seule.
 - Ne **jamais** alimenter la carte par l'USB et par la broche 5V en même temps.
+- **TTP223 en 3,3 V, pas en 5 V** : sa sortie suit sa tension d'alimentation, et les broches du C6 ne supportent pas le 5 V.
+- **Mode du TTP223** : le code attend le mode par défaut (sortie haute tant qu'on touche, cavaliers A et B ouverts). Certains modules sont vendus réglés autrement : vérifier les deux pastilles à souder au dos.

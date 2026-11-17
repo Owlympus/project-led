@@ -13,6 +13,7 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Les
 - 2026-11-17 : bande à **30 pixels** (1 puce WS2805 pour 3 LEDs) au lieu de 90 : `STRIP_PIXELS`, tampon RMT ramené à ~4,8 Ko ; doc (HARDWARE, ADR-0002, ROADMAP).
 
 ### Ajouté
+- 2026-11-18 : **licence** : double licence MIT OU Apache-2.0 (`LICENSE-MIT`, `LICENSE-APACHE`, textes officiels), champ `license` dans les trois crates, section et badge dans le README.
 - 2026-11-17 : `firmware` : **interrupteurs d'ambiance** dans l'app Maison (endpoints 2 à 4, `AmbianceSwitch`) : une seule ambiance à la fois, allumer une ambiance allume la lampe, changer la couleur ou éteindre la lampe la quitte, ambiances éteintes après une coupure ; la bande fond d'une image à l'autre en 0,8 s (`Scene`) ; `LIGHT_REQUEST` remplace `BUTTON_TOGGLE` (ADR-0014). `led_core` : `LightState::ambiance`, `render` et `is_animated`, `effect::crossfade`, `Easing::progress`, `Ambiance::is_animated` ; 5 tests. **Fin du code de l'étape 4f.**
 - 2026-11-17 : `led_core` : **ambiances** (`Ambiance`) dessinées pixel par pixel : Coucher de soleil (dégradé fixe orange → rose → violet), Aurore boréale (vert → cyan → violet qui dérive en 20 s), Feu de camp (oranges et blancs chauds qui vacillent) ; outils `effect::gradient_at`, `pixel_position`, `ping_pong`, `smooth_noise` (bruit doux et déterministe, sans générateur aléatoire) ; `Rgbcct::lerp`, repris par `Transition` ; 12 tests. Début de l'étape 4f.
 - 2026-11-17 : `firmware` : **signaux d'état** sur la bande : vague rouge tant que la lampe n'est pas appairée (`has_fabrics`), bleue tant que le Wi-Fi n'est pas venu depuis le démarrage, premier pixel qui clignote si le Wi-Fi est perdu ; Wi-Fi suivi par une tâche utilisateur Matter (`WifiWatcher`, drapeau baissé dans `Drop`) ; `watch_status` à côté de la pile (`select`) ; la bande dessine une image complète par trame (`Strip::show`, `Scene`) (ADR-0013). **Fin du code de l'étape 4e.**
@@ -39,6 +40,7 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Les
 - 2026-11-16 : dépôt git dédié à `project-led` (auparavant le dossier parent `Projects/Rust`), avec un `.gitignore` (`target/`, `.idea/`, `.DS_Store`).
 
 ### Décidé
+- 2026-11-18 : licence du projet : MIT OU Apache-2.0, au choix (convention de l'écosystème Rust).
 - 2026-11-17 : règles des interrupteurs d'ambiance : une seule à la fois, allumer une ambiance allume la lampe, changer la couleur ou éteindre la lampe la quitte, ambiances éteintes après une coupure (ADR-0014).
 - 2026-11-17 : ambiances exposées dans l'app Maison par **un interrupteur Matter par ambiance** ; premières ambiances : Coucher de soleil, Aurore boréale, Feu de camp.
 - 2026-11-17 : signaux d'état : appairage via `has_fabrics`, Wi-Fi via une tâche utilisateur Matter ; vague bleue à chaque démarrage tant que le Wi-Fi n'est pas là (ADR-0013).

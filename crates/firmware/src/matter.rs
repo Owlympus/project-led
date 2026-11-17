@@ -7,8 +7,7 @@
 //! - at first start, it advertises the lamp over **Bluetooth** and prints a
 //!   pairing QR code in the logs;
 //! - during pairing, the iPhone sends it the **Wi-Fi** name and password, and
-//!   the stack joins the network by itself (no more `WIFI_SSID`, ADR-0008 is
-//!   superseded);
+//!   the stack joins the network by itself;
 //! - then it answers the Apple TV's commands over Wi-Fi.
 //!
 //! Our part is the [`Light`] type below: the stack calls it when the Home app

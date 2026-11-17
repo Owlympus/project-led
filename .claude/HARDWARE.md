@@ -18,7 +18,7 @@
 
 - Réf. Waveshare SKU 25723, part no. `ESP32-C6-DEV-KIT-N8`.
 - Module **ESP32-C6-WROOM-1** : « NX » sur l'annonce et la photo désigne toute la série (X = taille de flash, N8 ou N16). La version commandée a **8 Mo**. On le vérifiera avec `espflash board-info`.
-- **Brochage compatible ESP32-C6-DevKitC-1** : la doc Espressif, Wokwi et les exemples `esp-hal` s'appliquent.
+- **Brochage compatible ESP32-C6-DevKitC-1** : la doc Espressif et les exemples `esp-hal` s'appliquent.
 - **Une seule prise USB-C**, avec un hub interne (CH334) qui donne à la fois l'USB natif de la puce (flash, logs, débogage JTAG) et un port série via un CH343.
 - **Barrettes de broches à souder** (la version `-M` les a déjà soudées).
 - À confirmer sur la carte reçue : LED RGB intégrée (GPIO8 sur la DevKitC), boutons Boot / Reset, type d'antenne.

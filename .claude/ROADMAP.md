@@ -37,8 +37,8 @@
 
 ## Questions ouvertes
 
-- Annonce AliExpress : vraie puce WS2805 ? Consommation en W/m ? (Résolu : 1 puce pour 3 LEDs, soit 30 pixels.)
-- Sur la bande reçue : W1 = blanc chaud ou blanc froid ? (`WhiteOrder`)
+- Bande reçue : consommation réelle en W/m (pour dimensionner l'alimentation 12 V) ?
+- Sur la bande reçue : W1 = blanc chaud ou blanc froid ? (`WhiteOrder`) Températures réelles des deux blancs ? (`STRIP_WHITE_CHANNELS`, 2700 K / 6500 K supposés)
 - Génération de l'Apple TV 4K (Thread possible ou non) ?
 - GPIO utilisée pour les données de la bande ? (candidates dans `HARDWARE.md`)
 - Boîtier pas encore défini (tube acrylique, pièces imprimées en 3D, lest dans le pied…). Seule contrainte connue : pas de métal autour de l'antenne.

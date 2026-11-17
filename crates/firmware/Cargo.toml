@@ -56,19 +56,15 @@ rs-matter-embassy = { git = "https://github.com/sysgrok/rs-matter-embassy", rev 
   "rustcrypto",
   "trouble",
 ] }
-# A few C functions (memchr…) some Matter dependencies expect.
-tinyrlibc = { version = "0.5", default-features = false, features = ["memchr", "strtoul", "utoa"] }
-portable-atomic = { version = "1", features = ["critical-section"] }
 embassy-sync = "0.8"
 
 led_core = { path = "../core" }
 ws2805   = { path = "../ws2805" }
 
-critical-section = "1.2.0"
 static_cell      = "2.1.1"
 
 
-# For fine tuning these settings, please refer to https://doc.rust-lang.org/cargo/reference/profiles.html
+# For fine-tuning these settings, please refer to https://doc.rust-lang.org/cargo/reference/profiles.html
 [profile.dev]
 # The default debug profile is too slow and too big for resource-constrained devices.
 # Always build with some optimizations enabled.

@@ -45,7 +45,6 @@ use led_core::{ColorTemperature, Hsv, Rgb, Rgbcct, Transition, WhiteChannels};
 use log::{error, info};
 use static_cell::ConstStaticCell;
 use strip::Strip;
-use tinyrlibc as _; // C functions (memchr…) needed by Matter's dependencies
 use ws2805::WhiteOrder;
 
 // Metadata required by the bootloader (version, build date…).

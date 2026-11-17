@@ -1,7 +1,7 @@
 # Feuille de route
 
 **Statut actuel :** étape 1 terminée (`led_core` : couleurs, blancs, HSV, gamma, transitions ; 34 tests).
-**Prochaine étape :** étape 2 (piloter la bande depuis le C6). Il faut la carte ESP32-C6, la bande et l'adaptateur de niveau.
+**Prochaine étape :** étape 2 (piloter la bande depuis le C6). La carte (Waveshare ESP32-C6-DEV-KIT-N8) est commandée. Il manque encore la bande et l'adaptateur de niveau.
 
 ## Étapes
 
@@ -34,8 +34,9 @@
 
 - Annonce AliExpress : vraie puce WS2805 ? Combien de LEDs par puce ? Consommation en W/m ?
 - Génération de l'Apple TV 4K (Thread possible ou non) ?
-- Modèle exact de la carte ESP32-C6 et taille de sa flash ?
-- GPIO utilisée pour les données de la bande ?
+- GPIO utilisée pour les données de la bande ? (candidates dans `HARDWARE.md`)
+- Boîtier tout acrylique ou profilé aluminium ? (impact sur l'antenne)
+- Lampe finale : la C6-Zero (4 Mo) suffit-elle pour le firmware Matter ?
 
 ## Idées pour plus tard
 

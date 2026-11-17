@@ -1,7 +1,7 @@
 # Feuille de route
 
 **Statut actuel :** étape 1 terminée (`led_core` : couleurs, blancs, HSV, gamma, transitions ; 34 tests).
-**Prochaine étape :** étape 2 (piloter la bande depuis le C6) : outillage, `firmware`, encodage WS2805 et code de la LED de la carte et de la bande sont prêts. Il faut maintenant la carte pour tester, puis la bande. La carte (Waveshare ESP32-C6-DEV-KIT-N8) est commandée. Il manque encore la bande et l'adaptateur de niveau.
+**Prochaine étape :** tests sur le matériel. Le code des étapes 2 (LED de la carte, bande) et 3 (Wi-Fi) est prêt et compile ; il faut maintenant la carte pour tester, puis la bande. La carte (Waveshare ESP32-C6-DEV-KIT-N8) est commandée. Il manque encore la bande et l'adaptateur de niveau.
 
 ## Étapes
 
@@ -25,7 +25,8 @@
   - [x] Code de la bande via le RMT : `firmware/src/strip.rs` (canal 1, GPIO2, 30 pixels, tampon statique de ~4,8 Ko), avec un test des 5 canaux
   - [ ] Sur la vraie bande : lancer le test des canaux, vérifier l'ordre (RGB, W1/W2) et le nombre de pixels
 - [ ] **3. Wi-Fi**
-  - [ ] Connexion au réseau 2,4 GHz
+  - [x] Code de connexion au réseau 2,4 GHz avec reconnexion automatique et adresse IP par DHCP (`firmware/src/wifi.rs`, `esp-radio` + `embassy-net`), identifiants lus à la compilation (ADR-0008) ; compilé, pas encore testé sur la carte
+  - [ ] Sur la vraie carte : voir l'adresse IP dans les logs, puis vérifier la reconnexion (éteindre et rallumer la box)
   - [ ] (optionnel) Petite page web de test / débogage
 - [ ] **4. Matter** (lampe visible dans l'app Maison)
   - [ ] Intégrer `rs-matter-embassy`, appairage par QR code via BLE

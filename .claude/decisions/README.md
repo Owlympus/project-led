@@ -12,5 +12,6 @@ On ne réécrit pas un ADR accepté : si on change d'avis, on en crée un nouvea
 | [0005](0005-decoupage-en-crates.md) | Découpage du workspace en crates réutilisables | Accepté | 2026-11-16 |
 | [0006](0006-temperature-en-mireds.md) | Températures de blanc en mireds, calculs en entiers | Accepté | 2026-11-16 |
 | [0007](0007-firmware-hors-workspace.md) | Le crate `firmware` est un projet Cargo à part | Accepté | 2026-11-17 |
+| [0008](0008-identifiants-wifi-a-la-compilation.md) | Identifiants Wi-Fi lus à la compilation (provisoire) | Accepté | 2026-11-17 |
 
 Modèle : [TEMPLATE.md](TEMPLATE.md)

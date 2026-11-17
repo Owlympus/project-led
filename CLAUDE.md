@@ -55,5 +55,6 @@ Firmware (depuis `crates/firmware`, car il est hors workspace) :
 ```bash
 cargo build                          # compile pour le C6
 cargo run                            # compile, flashe la carte par USB et affiche les logs
+WIFI_SSID="…" WIFI_PASSWORD="…" cargo run   # idem, avec le Wi-Fi (ADR-0008)
 cargo clippy --all-targets && cargo fmt
 ```

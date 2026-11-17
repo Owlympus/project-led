@@ -8,6 +8,7 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Les
 - 2026-11-17 : bande à **30 pixels** (1 puce WS2805 pour 3 LEDs) au lieu de 90 : `STRIP_PIXELS`, tampon RMT ramené à ~4,8 Ko ; doc (HARDWARE, ADR-0002, ROADMAP).
 
 ### Ajouté
+- 2026-11-17 : `firmware` : Wi-Fi (`wifi.rs`) : connexion au réseau avec reconnexion automatique, adresse IP par DHCP affichée dans les logs (`esp-radio` 1.0 bêta, `embassy-net` 0.9) ; tas de 64 Ko (`esp-alloc`) exigé par le pilote radio ; identifiants `WIFI_SSID` / `WIFI_PASSWORD` lus à la compilation (ADR-0008).
 - 2026-11-17 : `firmware` : pilote de la bande (`strip.rs`, canal RMT 1 sur GPIO2, tampon statique `ConstStaticCell` de 90 pixels) et tâche de test des 5 canaux ; conversion impulsions → codes RMT partagée (`pulse_code.rs`). `ws2805` : `strip_bytes` accepte tout itérateur de pixels ; 1 test.
 - 2026-11-17 : `firmware` : la LED RGB de la carte (WS2812, GPIO8) fait le tour de la roue chromatique via le RMT à 80 MHz (`board_led.rs`, `led_core` → `ws2805` → RMT) ; `main.rs` déplacé dans `src/`. `ws2805` : `Pulse::to_ticks` (ns → ticks d'horloge, arrondi) ; 2 tests.
 - 2026-11-17 : `ws2805` : encodage pixel → octets (R, G, B, W1, W2 ; `WhiteOrder` pour l'ordre des blancs) → bits (poids fort en premier) → impulsions, sous forme d'itérateurs ; timings WS2805 (fiche technique) et WS2812 (LED de la carte) ; 10 tests + 1 exemple de doc.

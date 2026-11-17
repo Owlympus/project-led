@@ -6,7 +6,7 @@
 //!
 //! Two gestures:
 //! - **a tap** switches the lamp on or off. The request goes through Matter
-//!   (see `matter::BUTTON_TOGGLE`), so the Home app sees the change and the
+//!   (see `matter::LIGHT_REQUEST`), so the Home app sees the change and the
 //!   usual fade applies;
 //! - **held while the lamp powers up**, for [`RESET_HOLD`]: forgets the
 //!   pairing (see [`held_at_startup`]).
@@ -62,7 +62,7 @@ pub async fn button_task(mut button: Input<'static>) {
         // interrupt wakes the task up).
         button.wait_for_high().await;
         info!("button: toggle");
-        matter::BUTTON_TOGGLE.signal(());
+        matter::LIGHT_REQUEST.signal(matter::LightRequest::Toggle);
         Timer::after(DEBOUNCE).await;
     }
 }

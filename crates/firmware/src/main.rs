@@ -46,8 +46,9 @@ use esp_hal::rmt::{PulseCode, Rmt, TxChannelConfig, TxChannelCreator};
 use esp_hal::time::Rate;
 use esp_hal::timer::timg::TimerGroup;
 use esp_metadata_generated::memory_range;
+use led_core::effect::crossfade;
 use led_core::{
-    ColorTemperature, Hsv, LightState, Rgb, Rgbcct, StatusSignal, Transition, WhiteChannels,
+    ColorTemperature, Easing, Hsv, LightState, Rgb, Rgbcct, StatusSignal, WhiteChannels,
 };
 use log::{error, info};
 use static_cell::ConstStaticCell;
@@ -86,6 +87,8 @@ const STRIP_WHITE_CHANNELS: WhiteChannels = WhiteChannels::new(
 /// Matter runs the fades itself, but in steps (every 100 ms for colors):
 /// we smooth each step over this time so they don't show (ADR-0010).
 const SMOOTHING_MS: u32 = 100;
+/// Entering, leaving or changing an ambiance fades over this time.
+const AMBIANCE_FADE_MS: u32 = 800;
 /// Time between two frames while smoothing (50 frames per second).
 const FRAME_MS: u64 = 20;
 
@@ -207,12 +210,19 @@ async fn strip_task(mut strip: Strip<'static>) {
     }
 }
 
-/// What the strip shows: the lamp's color (with its smoothing) and,
-/// sometimes, a status signal on top.
+/// What the strip shows: the lamp's state (plain color or ambiance), faded
+/// in from the previous picture, and sometimes a status signal on top.
 struct Scene {
-    /// Always heading from what is shown towards the latest state.
-    transition: Transition,
-    transition_start: Instant,
+    /// The lamp's latest state, and since when its ambiance runs.
+    state: LightState,
+    ambiance_start: Instant,
+    /// The picture shown when the state last changed (before gamma, without
+    /// the status signal): the new picture fades in from it.
+    fade_from: [Rgbcct; STRIP_PIXELS],
+    fade_start: Instant,
+    fade_ms: u32,
+    /// The last picture drawn, same conventions as `fade_from`.
+    shown: [Rgbcct; STRIP_PIXELS],
     status: Option<StatusSignal>,
     status_start: Instant,
 }
@@ -220,8 +230,12 @@ struct Scene {
 impl Scene {
     fn new() -> Self {
         Self {
-            transition: Transition::instant(Rgbcct::OFF),
-            transition_start: Instant::now(),
+            state: LightState::DEFAULT,
+            ambiance_start: Instant::now(),
+            fade_from: [Rgbcct::OFF; STRIP_PIXELS],
+            fade_start: Instant::now(),
+            fade_ms: 0,
+            shown: [Rgbcct::OFF; STRIP_PIXELS],
             status: None,
             status_start: Instant::now(),
         }
@@ -229,12 +243,19 @@ impl Scene {
 
     /// A new state from the Home app (or the button).
     fn light(&mut self, state: &LightState) {
-        // Start again from the color shown right now, so a new step in the
-        // middle of the smoothing doesn't jump.
-        let shown = self.transition.at(millis_since(self.transition_start));
-        let target = state.pixel(&STRIP_WHITE_CHANNELS);
-        self.transition = Transition::new(shown, target, SMOOTHING_MS);
-        self.transition_start = Instant::now();
+        // Fade from what is shown right now, so a new step in the middle of
+        // a fade doesn't jump.
+        self.fade_from = self.shown;
+        self.fade_start = Instant::now();
+        // Matter's small steps are only smoothed; entering or leaving an
+        // ambiance is a real change of picture, faded more slowly.
+        self.fade_ms = if state.ambiance == self.state.ambiance {
+            SMOOTHING_MS
+        } else {
+            self.ambiance_start = Instant::now();
+            AMBIANCE_FADE_MS
+        };
+        self.state = *state;
     }
 
     /// A new status signal, or `None` when everything is fine again.
@@ -246,12 +267,24 @@ impl Scene {
 
     /// Whether the next frames will differ from this one.
     fn is_moving(&self) -> bool {
-        self.status.is_some() || !self.transition.is_done(millis_since(self.transition_start))
+        self.status.is_some()
+            || self.state.is_animated()
+            || millis_since(self.fade_start) < self.fade_ms
     }
 
     /// Fills `frame` with what to show now, gamma corrected.
-    fn draw(&self, frame: &mut [Rgbcct]) {
-        frame.fill(self.transition.at(millis_since(self.transition_start)));
+    fn draw(&mut self, frame: &mut [Rgbcct; STRIP_PIXELS]) {
+        // The lamp's picture, faded in from the previous one.
+        self.state.render(
+            &STRIP_WHITE_CHANNELS,
+            millis_since(self.ambiance_start),
+            frame,
+        );
+        let t = Easing::EaseInOut.progress(millis_since(self.fade_start), self.fade_ms);
+        crossfade(&self.fade_from, frame, t);
+        self.shown = *frame;
+
+        // Then the status signal on top, and gamma last.
         if let Some(status) = self.status {
             status.render(millis_since(self.status_start), frame);
         }

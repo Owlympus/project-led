@@ -26,6 +26,16 @@ pub enum Easing {
 }
 
 impl Easing {
+    /// How far a fade of `duration_ms` is after `elapsed_ms`, eased: 0 at
+    /// the start, 65535 at the end and after. The scale of [`Rgbcct::lerp`].
+    pub fn progress(self, elapsed_ms: u32, duration_ms: u32) -> u16 {
+        if elapsed_ms >= duration_ms {
+            return Progress::MAX;
+        }
+        let linear = (elapsed_ms as u64 * PROGRESS_MAX as u64 / duration_ms as u64) as Progress;
+        self.apply(linear)
+    }
+
     /// Maps linear time progress to eased progress (both `0..=65535`).
     fn apply(self, progress: Progress) -> Progress {
         match self {
@@ -87,10 +97,7 @@ impl Transition {
         if self.is_done(elapsed_ms) {
             return self.to;
         }
-        let linear =
-            (elapsed_ms as u64 * PROGRESS_MAX as u64 / self.duration_ms as u64) as Progress;
-        let t = self.easing.apply(linear);
-
+        let t = self.easing.progress(elapsed_ms, self.duration_ms);
         self.from.lerp(self.to, t)
     }
 }

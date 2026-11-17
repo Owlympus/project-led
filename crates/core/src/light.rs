@@ -5,6 +5,7 @@
 //! Color Control) without depending on Matter: the [`matter_scale`] module
 //! converts Matter's values (mostly `0..=254`) to ours (`0..=255`).
 
+use crate::ambiance::Ambiance;
 use crate::color::{Rgb, Rgbcct};
 use crate::hsv::Hsv;
 use crate::white::{ColorTemperature, WhiteChannels};
@@ -28,6 +29,9 @@ pub struct LightState {
     /// comes back at the same level.
     pub brightness: u8,
     pub color: LightColor,
+    /// An ambiance shown instead of `color` (still at `brightness`), or
+    /// `None` for the plain color.
+    pub ambiance: Option<Ambiance>,
 }
 
 impl LightState {
@@ -37,6 +41,7 @@ impl LightState {
         on: false,
         brightness: 128,
         color: LightColor::Temperature(ColorTemperature::from_kelvin(3000)),
+        ambiance: None,
     };
 
     /// The pixel to send to the strip, before gamma correction.
@@ -57,6 +62,29 @@ impl LightState {
             LightColor::Temperature(temperature) => Rgbcct::from_white(whites.mix(temperature)),
         };
         full.scale(self.brightness)
+    }
+
+    /// Fills `frame` with what the whole strip should show, before gamma
+    /// correction: off, the ambiance, or the plain color everywhere.
+    ///
+    /// `ambiance_elapsed_ms` is the time since the ambiance started, for the
+    /// animated ones (ignored otherwise).
+    pub fn render(&self, whites: &WhiteChannels, ambiance_elapsed_ms: u32, frame: &mut [Rgbcct]) {
+        match (self.on, self.ambiance) {
+            (true, Some(ambiance)) => {
+                ambiance.render(ambiance_elapsed_ms, frame);
+                for pixel in frame.iter_mut() {
+                    *pixel = pixel.scale(self.brightness);
+                }
+            }
+            // Off (with or without ambiance), or a plain color.
+            _ => frame.fill(self.pixel(whites)),
+        }
+    }
+
+    /// Whether the frames from [`render`](Self::render) change over time.
+    pub fn is_animated(&self) -> bool {
+        self.on && self.ambiance.is_some_and(Ambiance::is_animated)
     }
 }
 
@@ -121,11 +149,14 @@ mod tests {
         ColorTemperature::from_kelvin(6500),
     );
 
+    const RED_PIXEL: Rgbcct = Rgbcct::new(255, 0, 0, 0, 0);
+
     fn on(brightness: u8, color: LightColor) -> LightState {
         LightState {
             on: true,
             brightness,
             color,
+            ambiance: None,
         }
     }
 
@@ -175,6 +206,48 @@ mod tests {
         let pixel = half_red.pixel(&WHITES);
         assert_eq!((pixel.g, pixel.b, pixel.warm, pixel.cold), (0, 0, 0, 0));
         assert!(pixel.r.abs_diff(128) <= 1, "got {pixel:?}");
+    }
+
+    #[test]
+    fn render_fills_the_strip_with_the_plain_color() {
+        let warm = on(255, LightColor::Temperature(WHITES.warm));
+        let mut frame = [Rgbcct::OFF; 4];
+        warm.render(&WHITES, 0, &mut frame);
+        assert_eq!(frame, [Rgbcct::new(0, 0, 0, 255, 0); 4]);
+    }
+
+    #[test]
+    fn render_shows_the_ambiance_at_the_lamp_brightness() {
+        let full = LightState {
+            ambiance: Some(Ambiance::Sunset),
+            ..on(255, LightColor::Temperature(WHITES.warm))
+        };
+        let half = LightState {
+            brightness: 128,
+            ..full
+        };
+        let mut full_frame = [Rgbcct::OFF; 5];
+        let mut half_frame = [Rgbcct::OFF; 5];
+        full.render(&WHITES, 0, &mut full_frame);
+        half.render(&WHITES, 0, &mut half_frame);
+
+        let mut sunset = [Rgbcct::OFF; 5];
+        Ambiance::Sunset.render(0, &mut sunset);
+        assert_eq!(full_frame, sunset);
+        assert_eq!(half_frame[0], sunset[0].scale(128));
+    }
+
+    #[test]
+    fn render_is_black_when_off_even_with_an_ambiance() {
+        let state = LightState {
+            on: false,
+            ambiance: Some(Ambiance::Campfire),
+            ..on(255, LightColor::Temperature(WHITES.warm))
+        };
+        let mut frame = [RED_PIXEL; 3];
+        state.render(&WHITES, 500, &mut frame);
+        assert_eq!(frame, [Rgbcct::OFF; 3]);
+        assert!(!state.is_animated(), "nothing moves while off");
     }
 
     #[test]

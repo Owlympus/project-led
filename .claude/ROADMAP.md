@@ -1,6 +1,6 @@
 # Feuille de route
 
-**Statut actuel :** étape 1 en cours. Types de couleur, mélange des blancs et HSV écrits et testés dans `led_core`.
+**Statut actuel :** étape 1 en cours. Types de couleur, mélange des blancs, HSV et correction gamma écrits et testés dans `led_core`. Reste : les transitions.
 **Prochaine étape :** étape 1 (`led_core`).
 
 ## Étapes
@@ -12,7 +12,7 @@
   - [x] Température de blanc (`ColorTemperature`, en mireds) et mélange chaud / froid (`WhiteChannels::mix`)
   - [x] Luminosité (`scale`)
   - [x] Teinte / saturation (`Hsv` → `Rgb` via `From`), comme le cluster Matter Color Control
-  - [ ] Correction gamma
+  - [x] Correction gamma 2.2 (`gamma8`, `gamma_corrected`), appliquée en dernier avant la bande
   - [ ] Transitions douces (interpolation dans le temps)
   - [x] Tests unitaires (`cargo test -p led_core`)
 - [ ] **2. Piloter la bande depuis le C6**

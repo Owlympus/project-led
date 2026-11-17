@@ -22,4 +22,5 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Les
 - 2026-11-16 : dépôt git dédié à `project-led` (auparavant le dossier parent `Projects/Rust`), avec un `.gitignore` (`target/`, `.idea/`, `.DS_Store`).
 
 ### Décidé
+- 2026-11-17 : le projet s'arrête à la v1 avec la bande WS2805 RGBCCT (RGBW écarté, précision dans l'ADR-0002) ; une bande RGBCW maison à une puce par LED est notée comme idée hors projet dans le ROADMAP.
 - 2026-11-16 : ESP32-C6, bande WS2805 12 V, Rust esp-hal + Embassy, une lampe = un appareil Matter appairé à l'Apple TV, découpage en crates réutilisables (voir les ADR).

@@ -19,6 +19,27 @@ impl Pulse {
     pub const fn period_ns(&self) -> u32 {
         self.high_ns as u32 + self.low_ns as u32
     }
+
+    /// The pulse as `(high, low)` counts of a clock ticking `tick_hz` times
+    /// per second, rounded to the nearest tick. That is what the RMT peripheral
+    /// expects (at 80 MHz, one tick = 12.5 ns).
+    pub const fn to_ticks(&self, tick_hz: u32) -> (u16, u16) {
+        (
+            ns_to_ticks(self.high_ns, tick_hz),
+            ns_to_ticks(self.low_ns, tick_hz),
+        )
+    }
+}
+
+/// `ns × tick_hz / 1 000 000 000`, rounded. Computed in `u64` because
+/// `ns × tick_hz` easily exceeds `u32` (1000 × 80 000 000).
+const fn ns_to_ticks(ns: u16, tick_hz: u32) -> u16 {
+    let ticks = (ns as u64 * tick_hz as u64 + 500_000_000) / 1_000_000_000;
+    if ticks > u16::MAX as u64 {
+        u16::MAX
+    } else {
+        ticks as u16
+    }
 }
 
 /// The timings of one LED chip model.
@@ -81,6 +102,19 @@ mod tests {
         assert!((650..=950).contains(&t.one.high_ns));
         assert!((300..=600).contains(&t.one.low_ns));
         assert!(t.reset_us >= 280);
+    }
+
+    #[test]
+    fn ticks_at_80_mhz() {
+        // 80 MHz: 1 tick = 12.5 ns.
+        assert_eq!(Pulse::new(350, 850).to_ticks(80_000_000), (28, 68));
+        assert_eq!(Pulse::new(800, 600).to_ticks(80_000_000), (64, 48));
+    }
+
+    #[test]
+    fn ticks_are_rounded() {
+        // 10 MHz: 1 tick = 100 ns. 349 ns → 3.49 → 3 ; 350 ns → 3.5 → 4.
+        assert_eq!(Pulse::new(349, 350).to_ticks(10_000_000), (3, 4));
     }
 
     #[test]

@@ -6,7 +6,7 @@ version      = "0.1.0"
 
 [[bin]]
 name = "firmware"
-path = "./src/bin/main.rs"
+path = "./src/main.rs"
 # No test harness on the chip: tests live in `led_core` and run on the Mac.
 test  = false
 bench = false
@@ -29,6 +29,7 @@ esp-backtrace = { version = "0.20.0", features = [
 esp-println = { version = "0.18.0", features = ["esp32c6", "log-04"] }
 
 led_core = { path = "../core" }
+ws2805   = { path = "../ws2805" }
 
 critical-section = "1.2.0"
 static_cell      = "2.1.1"

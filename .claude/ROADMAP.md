@@ -1,7 +1,7 @@
 # Feuille de route
 
-**Statut actuel :** étape 1 terminée ; le code des étapes 2, 3 et 4a compile mais n'a pas encore tourné sur la carte. Étape 4b commencée : l'état de la lampe (`LightState`) est prêt dans `led_core`.
-**Prochaine étape :** brancher Level Control et Color Control dans `matter.rs` (suite de 4b), ou les tests sur le matériel dès que la carte arrive. La carte (Waveshare ESP32-C6-DEV-KIT-N8) est commandée. Il manque encore la bande et l'adaptateur de niveau.
+**Statut actuel :** étape 1 terminée ; le code des étapes 2, 3 et 4a compile mais n'a pas encore tourné sur la carte. Le code de l'étape 4b (luminosité et couleurs) compile aussi.
+**Prochaine étape :** les tests sur le matériel dès que la carte arrive ; en attendant, l'étape 4c (mémorisation en flash). La carte (Waveshare ESP32-C6-DEV-KIT-N8) est commandée. Il manque encore la bande et l'adaptateur de niveau.
 
 ## Étapes
 
@@ -30,10 +30,11 @@
 - [ ] **4. Matter** (lampe visible dans l'app Maison, ADR-0009)
   - [x] **4a.** `rs-matter-embassy` intégré : appairage par QR code via Bluetooth, Wi-Fi fourni par l'iPhone, lampe **On/Off** qui allume la bande en blanc 3000 K avec un fondu (`firmware/src/matter.rs`) ; compilé, pas encore testé sur la carte
   - [ ] Sur la vraie carte : appairer avec l'app Maison, allumer / éteindre depuis l'iPhone
-  - [ ] **4b.** Level Control et Color Control (luminosité, teinte/saturation, température), reliés à `led_core`
+  - [x] **4b.** Level Control et Color Control (luminosité, teinte/saturation, température), reliés à `led_core`
     - [x] `led_core::LightState` : allumage, luminosité, couleur (teinte/saturation ou température) → pixel, et conversions des échelles Matter (`matter_scale`)
-    - [ ] `matter.rs` : clusters Level Control et Color Control, la bande suit un `LightState` au lieu d'un `bool`
-    - [ ] Choisir qui fait les transitions : les clusters Matter ou notre fondu (ADR à écrire)
+    - [x] `matter.rs` : lampe *Extended Color Light* (Level Control, Color Control, Identify, Scenes) ; la bande suit un `LightState` ; compilé, pas encore testé sur la carte
+    - [x] Transitions faites par `rs-matter`, lissées sur 100 ms par la bande (ADR-0010)
+  - [ ] Sur la vraie carte : luminosité, couleurs et blancs depuis l'app Maison
   - [ ] **4c.** Mémorisation de l'appairage et du dernier état en flash
   - [ ] **4d.** Bouton tactile local
 - [ ] **5. Boîtier** : tube acrylique, diffusion, dissipation thermique
@@ -45,8 +46,8 @@
 - Génération de l'Apple TV 4K (Thread possible ou non) ?
 - GPIO utilisée pour les données de la bande ? (candidates dans `HARDWARE.md`)
 - Boîtier pas encore défini (tube acrylique, pièces imprimées en 3D, lest dans le pied…). Seule contrainte connue : pas de métal autour de l'antenne.
-- L'app Maison envoie-t-elle les couleurs en teinte/saturation ou en XY ? Le type d'appareil *Extended Color Light* semble exiger le mode XY : à vérifier en branchant Color Control.
-- Lampe finale : la C6-Zero (4 Mo) suffit-elle pour le firmware Matter ? (A priori oui : ~1,8 Mo en `--release` à l'étape 4a. À revérifier avec la couleur et la flash.)
+- L'app Maison envoie-t-elle les couleurs en teinte/saturation ou en XY ? (Les deux sont gérés, XY via `rs-matter`.) Accepte-t-elle la lampe sans le cluster Groups (ADR-0010) ?
+- Lampe finale : la C6-Zero (4 Mo) suffit-elle pour le firmware Matter ? (A priori oui : ~1,9 Mo en `--release` à l'étape 4b. À revérifier avec la flash.)
 
 ## Idées pour plus tard
 
@@ -55,6 +56,16 @@
 - **En attente de configuration** (premier démarrage, avant l'appairage Bluetooth) : une vague **rouge** qui va et vient le long de la barre, façon K2000 (*Larson scanner*).
 - **Première connexion au Wi-Fi** (juste après la configuration Bluetooth) : la même vague, en **bleu**.
 - **Wi-Fi perdu** : le **premier pixel** (3 LEDs) clignote en rouge, le reste de la barre garde ses dernières couleurs.
+
+### Boîte à idées : pixels et ambiances
+
+Matter (et l'app Maison) ne connaît qu'**une couleur par endpoint** : pas de dégradé ni de réglage par pixel (à revérifier avec les nouvelles versions de Matter). Zigbee n'y changerait rien (le dégradé Hue est propriétaire, Maison ne parle pas Zigbee, pas de pile Zigbee mûre en Rust). Pistes, combinables :
+
+- **Ambiances prédéfinies** calculées dans la lampe, pixel par pixel (« Coucher de soleil », « Aurore »…), exposées chacune comme un **interrupteur Matter** en plus : utilisables dans les scènes, automatisations et avec Siri. Alternative : le cluster *Mode Select*, si l'app Maison l'affiche (à vérifier).
+- **Effets autour de la couleur choisie** dans Maison (dégradé, vague, respiration), dans `led_core`.
+- **Plusieurs segments = plusieurs endpoints** (ex. 3 zones de 10 pixels) : natif, mais 3 tuiles pour une barre.
+- **Canal à nous** pour le contrôle fin : page web sur la lampe, ou le projet master/slave.
+- Préalable commun : une fonction de rendu « état → 30 pixels » dans `led_core`.
 
 ### Autres idées
 

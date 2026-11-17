@@ -14,5 +14,6 @@ On ne réécrit pas un ADR accepté : si on change d'avis, on en crée un nouvea
 | [0007](0007-firmware-hors-workspace.md) | Le crate `firmware` est un projet Cargo à part | Accepté | 2026-11-17 |
 | [0008](0008-identifiants-wifi-a-la-compilation.md) | Identifiants Wi-Fi lus à la compilation (provisoire) | Remplacé par 0009 | 2026-11-17 |
 | [0009](0009-matter-avec-rs-matter-embassy.md) | Matter avec `rs-matter-embassy`, lampe d'abord en On/Off | Accepté | 2026-11-17 |
+| [0010](0010-lampe-couleur-matter.md) | Lampe couleur Matter, transitions faites par `rs-matter` | Accepté | 2026-11-17 |
 
 Modèle : [TEMPLATE.md](TEMPLATE.md)

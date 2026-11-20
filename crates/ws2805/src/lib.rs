@@ -18,5 +18,5 @@
 pub mod encode;
 pub mod timing;
 
-pub use encode::{WhiteOrder, bits, pulses, strip_bytes, ws2805_bytes, ws2812_bytes};
+pub use encode::{ColorOrder, WhiteOrder, bits, pulses, strip_bytes, ws2805_bytes, ws2812_bytes};
 pub use timing::{Pulse, Timing};

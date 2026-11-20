@@ -105,6 +105,27 @@ impl Rgbcct {
     }
 }
 
+impl Rgbcct {
+    /// How this pixel roughly looks, as plain RGB: for an RGB-only LED
+    /// standing in for the strip (the dev board's LED, during tests).
+    ///
+    /// The white LEDs are imitated with their usual tint: warm white is
+    /// orangey, cold white slightly bluish. Only an approximation.
+    pub fn rgb_preview(self) -> Rgb {
+        /// The look of each white LED at full power, in RGB.
+        const WARM_TINT: Rgb = Rgb::new(255, 170, 90);
+        const COLD_TINT: Rgb = Rgb::new(215, 230, 255);
+        let warm = WARM_TINT.scale(self.warm);
+        let cold = COLD_TINT.scale(self.cold);
+        // `saturating_add`: stops at 255 instead of overflowing.
+        Rgb::new(
+            self.r.saturating_add(warm.r).saturating_add(cold.r),
+            self.g.saturating_add(warm.g).saturating_add(cold.g),
+            self.b.saturating_add(warm.b).saturating_add(cold.b),
+        )
+    }
+}
+
 /// Linear interpolation between `a` (t = 0) and `b` (t = 65535), rounded.
 fn lerp8(a: u8, b: u8, t: u16) -> u8 {
     const MAX: u32 = u16::MAX as u32;
@@ -141,6 +162,26 @@ mod tests {
         assert_eq!(a.lerp(b, 0), a);
         assert_eq!(a.lerp(b, u16::MAX), b);
         assert_eq!(a.lerp(b, u16::MAX / 2), Rgbcct::new(100, 100, 100, 50, 50));
+    }
+
+    #[test]
+    fn rgb_preview_keeps_colors_and_tints_whites() {
+        assert_eq!(
+            Rgbcct::new(10, 20, 30, 0, 0).rgb_preview(),
+            Rgb::new(10, 20, 30)
+        );
+        let warm = Rgbcct::new(0, 0, 0, 255, 0).rgb_preview();
+        assert!(
+            warm.r > warm.g && warm.g > warm.b,
+            "warm is orangey: {warm:?}"
+        );
+        let cold = Rgbcct::new(0, 0, 0, 0, 255).rgb_preview();
+        assert!(cold.b >= cold.r, "cold is bluish: {cold:?}");
+        // Everything on: saturates at white, no overflow.
+        assert_eq!(
+            Rgbcct::new(255, 255, 255, 255, 255).rgb_preview(),
+            Rgb::WHITE
+        );
     }
 
     #[test]

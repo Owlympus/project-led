@@ -1,6 +1,6 @@
 # ADR-0013 : Signaux d'état : comment le firmware sait quoi afficher
 
-- **Statut :** Accepté
+- **Statut :** Remplacé par [ADR-0015](0015-signaux-etat-revus.md)
 - **Date :** 2026-11-17
 
 ## Contexte

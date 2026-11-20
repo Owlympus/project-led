@@ -17,7 +17,7 @@
 ## Carte de développement : Waveshare ESP32-C6-DEV-KIT-N8
 
 - Réf. Waveshare SKU 25723, part no. `ESP32-C6-DEV-KIT-N8`.
-- Module **ESP32-C6-WROOM-1** : « NX » sur l'annonce et la photo désigne toute la série (X = taille de flash, N8 ou N16). La version commandée a **8 Mo**. On le vérifiera avec `espflash board-info`.
+- Module **ESP32-C6-WROOM-1** : « NX » sur l'annonce et la photo désigne toute la série (X = taille de flash, N8 ou N16). La version reçue a bien **8 Mo** (vérifié avec `espflash board-info` le 2026-11-19 : ESP32-C6 révision v0.2, quartz 40 MHz, Wi-Fi 6, BT 5, chiffrement de la flash désactivé).
 - **Brochage compatible ESP32-C6-DevKitC-1** : la doc Espressif et les exemples `esp-hal` s'appliquent.
 - **Une seule prise USB-C**, avec un hub interne (CH334) qui donne à la fois l'USB natif de la puce (flash, logs, débogage JTAG) et un port série via un CH343.
 - **Barrettes de broches à souder** (la version `-M` les a déjà soudées).
@@ -32,7 +32,7 @@
   - GPIO0 et 1, quartz 32 kHz s'il est utilisé.
 - **Données de la bande : GPIO2** (choix provisoire, canal RMT 1). Sur le brochage DevKitC, GPIO2 est en bout de barrette, à côté du 5V et du GND, pratique pour câbler l'adaptateur de niveau ; à confirmer sur la carte Waveshare. Autres candidates : GPIO6, 7, 10, 11, 18 à 23.
 - **Bouton tactile (TTP223) : GPIO3** (choix provisoire, à côté de GPIO2), en entrée avec *pull-down* interne.
-- **LED RGB de la carte : GPIO8** (canal RMT 0).
+- **LED RGB de la carte : GPIO8** (canal RMT 0), confirmé sur la carte le 2026-11-19. C'est un clone de WS2812 qui attend l'ordre **rouge, vert, bleu** (`ColorOrder::Rgb`), et non vert, rouge, bleu comme la WS2812 d'origine : avec l'ordre standard, le rouge s'affichait en vert.
 
 ### Alimentation pendant le développement
 

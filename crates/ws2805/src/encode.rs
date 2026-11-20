@@ -31,6 +31,19 @@ pub enum WhiteOrder {
     ColdFirst,
 }
 
+/// The order in which an RGB LED expects its 3 color bytes.
+///
+/// The WS2812 datasheet says green, red, blue; some clones (like the one on
+/// the Waveshare ESP32-C6 board) want red, green, blue.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ColorOrder {
+    /// Green, red, blue: the genuine WS2812.
+    #[default]
+    Grb,
+    /// Red, green, blue.
+    Rgb,
+}
+
 /// The 5 bytes of one WS2805 pixel, in the order they are sent.
 pub const fn ws2805_bytes(pixel: Rgbcct, whites: WhiteOrder) -> [u8; 5] {
     let (w1, w2) = match whites {
@@ -40,9 +53,12 @@ pub const fn ws2805_bytes(pixel: Rgbcct, whites: WhiteOrder) -> [u8; 5] {
     [pixel.r, pixel.g, pixel.b, w1, w2]
 }
 
-/// The 3 bytes of one WS2812 pixel (the dev board LED): green comes first.
-pub const fn ws2812_bytes(color: Rgb) -> [u8; 3] {
-    [color.g, color.r, color.b]
+/// The 3 bytes of one WS2812-style pixel (the dev board LED), in `order`.
+pub const fn ws2812_bytes(color: Rgb, order: ColorOrder) -> [u8; 3] {
+    match order {
+        ColorOrder::Grb => [color.g, color.r, color.b],
+        ColorOrder::Rgb => [color.r, color.g, color.b],
+    }
 }
 
 /// All the bytes of a WS2805 strip, first pixel first.
@@ -84,8 +100,14 @@ mod tests {
     }
 
     #[test]
-    fn ws2812_bytes_start_with_green() {
-        assert_eq!(ws2812_bytes(Rgb::new(10, 20, 30)), [20, 10, 30]);
+    fn ws2812_bytes_follow_the_color_order() {
+        let color = Rgb::new(10, 20, 30);
+        assert_eq!(
+            ws2812_bytes(color, ColorOrder::Grb),
+            [20, 10, 30],
+            "green first"
+        );
+        assert_eq!(ws2812_bytes(color, ColorOrder::Rgb), [10, 20, 30]);
     }
 
     #[test]
@@ -110,7 +132,7 @@ mod tests {
     #[test]
     fn one_pixel_is_40_bits() {
         assert_eq!(bits(ws2805_bytes(PIXEL, WhiteOrder::WarmFirst)).count(), 40);
-        assert_eq!(bits(ws2812_bytes(Rgb::WHITE)).count(), 24);
+        assert_eq!(bits(ws2812_bytes(Rgb::WHITE, ColorOrder::Grb)).count(), 24);
     }
 
     #[test]

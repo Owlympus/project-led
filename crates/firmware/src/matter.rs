@@ -40,13 +40,13 @@ use core::future::pending;
 use core::pin::pin;
 use core::sync::atomic::{AtomicBool, Ordering};
 
-use embassy_futures::select::{Either, select};
+use embassy_futures::select::{Either, Either3, select, select3};
 
 use embassy_embedded_hal::adapter::BlockingAsync;
 use embassy_sync::blocking_mutex::Mutex;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::signal::Signal;
-use embassy_time::{Duration, Timer};
+use embassy_time::{Duration, Instant, Timer};
 use esp_bootloader_esp_idf::partitions::{
     self, DataPartitionSubType, PARTITION_TABLE_MAX_LEN, PartitionType,
 };
@@ -55,14 +55,16 @@ use esp_hal::rng::{Trng, TrngSource};
 use esp_storage::FlashStorage;
 use led_core::light::matter_scale;
 use led_core::{Ambiance, ColorTemperature, LightColor, LightState, StatusSignal};
-use log::{info, warn};
+use log::{debug, info, warn};
 use rs_matter_embassy::matter::Matter;
 use rs_matter_embassy::matter::basic_info::BasicInfoConfig;
 use rs_matter_embassy::matter::crypto::{Crypto, default_crypto};
 use rs_matter_embassy::matter::dm::clusters::app::color_control::{
     self, ColorCapabilitiesBitmap, ColorControlHooks, SetDeviceColor,
 };
-use rs_matter_embassy::matter::dm::clusters::app::level_control::{self, LevelControlHooks};
+use rs_matter_embassy::matter::dm::clusters::app::level_control::{
+    self, LevelControlHooks, OutOfBandMessage as LevelMessage,
+};
 use rs_matter_embassy::matter::dm::clusters::app::on_off::{
     self, EffectVariantEnum, OnOffHooks, OutOfBandMessage,
 };
@@ -120,6 +122,8 @@ pub enum LightRequest {
     Toggle,
     /// An ambiance was switched on while the lamp was off.
     On,
+    /// The ambiance shown was switched off: the lamp goes off (ADR-0016).
+    Off,
 }
 pub static LIGHT_REQUEST: Signal<CriticalSectionRawMutex, LightRequest> = Signal::new();
 
@@ -380,18 +384,34 @@ pub async fn run(
 /// simple, and cheap enough (two flags and a list of fabrics to look at).
 async fn watch_status(matter: &Matter<'_>) {
     let mut shown = None;
+    // Whether the lamp was paired and on the Wi-Fi at the last look, and
+    // until when the blue "connected" signal shows.
+    let mut was_synced = false;
+    let mut connected_until = Instant::now();
     loop {
         // A "fabric" is a Matter network the lamp belongs to; ours is the
         // Apple TV's. No fabric: not paired yet.
-        let status = if !matter.has_fabrics() {
+        let paired = matter.has_fabrics();
+        let wifi_up = WIFI_UP.load(Ordering::Relaxed);
+        let synced = paired && wifi_up;
+        if synced && !was_synced {
+            // Just became fully connected (after pairing, at power-up, or
+            // when the Wi-Fi comes back): one blue round trip.
+            connected_until =
+                Instant::now() + Duration::from_millis(StatusSignal::CONNECTED_MS.into());
+        }
+        was_synced = synced;
+
+        let status = if !paired {
             Some(StatusSignal::WaitingForPairing)
-        } else if WIFI_UP.load(Ordering::Relaxed) {
-            None
-        } else if WIFI_WAS_UP.load(Ordering::Relaxed) {
+        } else if synced && Instant::now() < connected_until {
+            Some(StatusSignal::Connected)
+        } else if !wifi_up && WIFI_WAS_UP.load(Ordering::Relaxed) {
             Some(StatusSignal::WifiLost)
         } else {
-            // Paired, Wi-Fi not up yet since power-up: joining it.
-            Some(StatusSignal::JoiningWifi)
+            // All good, or paired and still joining the Wi-Fi after power-up:
+            // just the lamp's color.
+            None
         };
 
         if status != shown {
@@ -405,43 +425,59 @@ async fn watch_status(matter: &Matter<'_>) {
 
 /// Keeps [`WIFI_UP`] up to date, as a Matter "user task".
 ///
-/// `rs-matter` starts this task when the Wi-Fi is up (with an address) and
-/// stops it (drops its future) when the Wi-Fi goes down. So: raise the flag
-/// when it starts, and let [`WifiUp`] lower it when it is dropped.
+/// `rs-matter` hands this task the network interface (`netif`). It runs from
+/// startup, Wi-Fi or not (first tests on the board, ADR-0013): so it reads
+/// the interface's real state, *operational* or not, and waits for it to
+/// change.
 struct WifiWatcher;
 
 impl UserTask for WifiWatcher {
-    async fn run<S, N>(&mut self, _net_stack: S, _netif: N) -> Result<(), Error>
+    async fn run<S, N>(&mut self, _net_stack: S, netif: N) -> Result<(), Error>
     where
         S: NetStack,
         N: NetifDiag + NetChangeNotif,
     {
-        let _up = WifiUp::new();
-        // Nothing else to do: wait until `rs-matter` stops us.
-        pending().await
+        // If `rs-matter` ever stops this task, assume the Wi-Fi is gone.
+        let _down_on_stop = WifiDownOnDrop;
+        loop {
+            // `netifs` calls the closure once per interface (just the Wi-Fi
+            // here). `|=`: up if any interface is operational.
+            let mut up = false;
+            netif.netifs(&mut |info| {
+                up |= info.operational;
+                Ok(())
+            })?;
+            set_wifi_up(up);
+            // Sleep until the interface changes (link, addresses…).
+            netif.wait_changed().await;
+        }
     }
 }
 
-/// While a `WifiUp` exists, [`WIFI_UP`] is `true`.
-///
-/// Its `Drop` runs when the value goes away, whatever the reason (here:
-/// `rs-matter` dropping the task). It is Rust's destructor, like PHP's
-/// `__destruct`, but it runs at a known moment, never "later".
-struct WifiUp;
-
-impl WifiUp {
-    fn new() -> Self {
-        info!("Wi-Fi: up");
-        WIFI_UP.store(true, Ordering::Relaxed);
+/// Updates [`WIFI_UP`] (and [`WIFI_WAS_UP`]), logging only the changes.
+fn set_wifi_up(up: bool) {
+    // `swap` writes the new value and returns the old one, in one step.
+    let was = WIFI_UP.swap(up, Ordering::Relaxed);
+    if up {
         WIFI_WAS_UP.store(true, Ordering::Relaxed);
-        Self
+    }
+    match (was, up) {
+        (false, true) => info!("Wi-Fi: up"),
+        (true, false) => warn!("Wi-Fi: down"),
+        _ => {}
     }
 }
 
-impl Drop for WifiUp {
+/// Lowers [`WIFI_UP`] when dropped, that is when [`WifiWatcher`]'s task is
+/// stopped.
+///
+/// `Drop` is Rust's destructor, like PHP's `__destruct`, but it runs at a
+/// known moment (when the value goes away), never "later".
+struct WifiDownOnDrop;
+
+impl Drop for WifiDownOnDrop {
     fn drop(&mut self) {
-        warn!("Wi-Fi: down");
-        WIFI_UP.store(false, Ordering::Relaxed);
+        set_wifi_up(false);
     }
 }
 
@@ -584,6 +620,11 @@ impl OnOffHooks for OnOffLight {
             }
         });
         ambiance_left(&before);
+        if !on {
+            // Let the brightness side check where it was left (see
+            // `DimmableLight::run`).
+            RESTORE_LEVEL.signal(());
+        }
     }
 
     async fn handle_off_with_effect(&self, _effect: EffectVariantEnum) {
@@ -599,6 +640,7 @@ impl OnOffHooks for OnOffLight {
             notify(match LIGHT_REQUEST.wait().await {
                 LightRequest::Toggle => OutOfBandMessage::Toggle,
                 LightRequest::On => OutOfBandMessage::On,
+                LightRequest::Off => OutOfBandMessage::Off,
             });
         }
     }
@@ -606,6 +648,16 @@ impl OnOffHooks for OnOffLight {
 
 /// Our side of the Level Control cluster (brightness).
 struct DimmableLight;
+
+/// Each level `rs-matter` sets, for [`DimmableLight::run`] to spot the one
+/// the user settled on.
+static LEVEL_SET: Signal<CriticalSectionRawMutex, u8> = Signal::new();
+/// The lamp is off with its saved brightness possibly at the minimum: put
+/// back the chosen one (see [`DimmableLight::run`]).
+static RESTORE_LEVEL: Signal<CriticalSectionRawMutex, ()> = Signal::new();
+/// A level that stays this long is one the user chose (fades and Home app
+/// transitions move on much faster).
+const LEVEL_SETTLE: Duration = Duration::from_secs(1);
 
 impl LevelControlHooks for DimmableLight {
     /// Matter's brightness scale for lights: 1 (dimmest, still on) to 254.
@@ -652,9 +704,67 @@ impl LevelControlHooks for DimmableLight {
 
     /// Called at every step of a transition, so no log here (too many).
     fn set_device_level(&self, level: u8) -> Result<Option<u8>, ()> {
-        update_light(|light| light.brightness = matter_scale::brightness(level));
+        let before = update_light(|light| light.brightness = matter_scale::brightness(level));
+        LEVEL_SET.signal(level);
+        // Lamp off and brightness at the minimum (the Home app often sends
+        // "level 1" right after switching off): fix it at once.
+        if !before.on && level <= Self::MIN_LEVEL {
+            RESTORE_LEVEL.signal(());
+        }
         // We can show every level: report the one asked.
         Ok(Some(level))
+    }
+
+    /// Works around a trap of Matter's "switch on" (first tests on the
+    /// board, 2026-11-19): switching on goes back to the brightness saved
+    /// when the lamp went off. If that is the **minimum** (slider pulled
+    /// down to off, or a fade-out saved just before a restart), the lamp
+    /// "switches on" to the minimum level, which Matter turns off again at
+    /// once: the lamp seems to refuse to switch on.
+    ///
+    /// So: remember the last level the user settled on, and as soon as the
+    /// lamp is off (or is set to the minimum while off), quietly put the
+    /// saved brightness back to it, with no delay: a first version waited
+    /// 1.3 s, and a quick off/on came in before the fix. `Update` only
+    /// changes what Matter reports and saves; it doesn't drive the lamp or
+    /// switch it on.
+    async fn run<F: Fn(LevelMessage) + MaybeSend>(&self, notify: F) {
+        let mut chosen = Self::CURRENT_LEVEL.unwrap_or(Self::MAX_LEVEL / 2);
+        // The very first level is the one restored from flash at startup:
+        // it counts even though the lamp is off then.
+        let mut first = true;
+        // The latest level seen, until it has stayed long enough to count.
+        let mut settling: Option<u8> = None;
+        loop {
+            // Ends after `LEVEL_SETTLE` if a level is settling, never
+            // otherwise. `async move` takes a copy of the `bool`, so the
+            // future doesn't borrow `settling` (changed in the match below).
+            let waiting = settling.is_some();
+            let settled = async move {
+                if waiting {
+                    Timer::after(LEVEL_SETTLE).await;
+                } else {
+                    pending::<()>().await;
+                }
+            };
+            // `select3`: like `select`, with three things to wait for.
+            match select3(LEVEL_SET.wait(), RESTORE_LEVEL.wait(), settled).await {
+                // A new level: start counting again from it.
+                Either3::First(level) => settling = Some(level),
+                // No delay, whatever the order of Matter's commands: only
+                // the saved value changes, the lamp stays off.
+                Either3::Second(()) => notify(LevelMessage::Update(chosen)),
+                Either3::Third(()) => {
+                    if let Some(level) = settling.take() {
+                        let lamp_on = LIGHT.lock(Cell::get).on;
+                        if (lamp_on || first) && level > Self::MIN_LEVEL {
+                            chosen = level;
+                        }
+                        first = false;
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -716,8 +826,10 @@ impl ColorControlHooks for ColorLight {
         mireds: ColorTemperature::from_kelvin(3000).mireds(),
     });
 
-    /// Called at every step of a transition, so no log here (too many).
+    /// Called at every step of a transition (every 100 ms), hence a
+    /// `debug!` log only: hidden by default.
     fn set_device_color(&self, target: SetDeviceColor) -> Result<(), ()> {
+        debug!("Matter: color {target:?}");
         let color = match target {
             SetDeviceColor::ColorTemperature { mireds } => {
                 LightColor::Temperature(ColorTemperature::from_mireds(mireds))
@@ -780,12 +892,14 @@ impl OnOffHooks for AmbianceSwitch {
             if !before.on {
                 LIGHT_REQUEST.signal(LightRequest::On);
             }
-        } else {
-            update_light(|light| {
-                if light.ambiance == Some(ambiance) {
-                    light.ambiance = None; // back to the plain color
-                }
-            });
+        } else if LIGHT.lock(Cell::get).ambiance == Some(ambiance) {
+            // Switching off the ambiance shown switches the lamp off
+            // (ADR-0016), through Matter so the Home app follows and the
+            // fade applies. The ambiance stays on the strip during the fade
+            // (no flash of the plain color); switching the lamp off then
+            // leaves it.
+            info!("ambiance off: {} (its switch), lamp off", ambiance.name());
+            LIGHT_REQUEST.signal(LightRequest::Off);
         }
     }
 

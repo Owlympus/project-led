@@ -101,11 +101,15 @@ cargo run
 Ce qu'on doit voir :
 - dans les logs : `Embassy started`, `RMT at 80000000 Hz`, puis `strip test: red`, `strip test: green`… (une fois, au démarrage) et un `heartbeat #…` toutes les 2 s ;
 - un **QR code** dessiné dans les logs, pour l'appairage (étape suivante) ;
-- sur la carte : la LED RGB qui fait lentement le tour des couleurs (≈ 7 s par tour).
+- sur la carte : la **LED RGB imite la bande**, résumée en une couleur : rouge, vert, bleu, orangé (blanc chaud), blanc bleuté (blanc froid) pendant le test des canaux, puis une **respiration rouge** (2 s) tant que la lampe attend l'appairage, une **respiration bleue** d'1 s une fois connectée, un **clignotement rouge** si le Wi-Fi est perdu, et ensuite la couleur ou la teinte moyenne de l'ambiance réglée dans l'app Maison. Pratique pour tester sans bande.
 
 `cargo run --release` produit un programme optimisé, plus petit et plus rapide (la compilation est plus longue).
 
-Pour plus de détails dans les logs : `ESP_LOG=debug cargo run` (le niveau par défaut, `info`, est réglé dans `.cargo/esp-config.toml`).
+Pour plus de détails dans les logs : `ESP_LOG=debug cargo run` (le niveau par défaut, `info`, est réglé dans `.cargo/esp-config.toml`). Pour ne voir que les détails de notre firmware (couleurs reçues de Matter, changements de la bande) sans le flot de `rs-matter` :
+
+```bash
+ESP_LOG="info,firmware=debug" cargo run
+```
 
 ## 7. Appairer la lampe avec l'app Maison 🧪
 
@@ -115,7 +119,7 @@ La lampe est un appareil **Matter** ([ADR-0009](../.claude/decisions/0009-matter
 2. Sur l'iPhone, app **Maison** → **+** → **Ajouter un accessoire**.
 3. Scanner le QR code affiché dans les logs. Si le scan ne marche pas, choisir « Plus d'options » et saisir le code de test **3497-011-2332**.
 4. L'app prévient que l'accessoire n'est **pas certifié** (normal : on utilise les certificats de test de Matter) → **Ajouter quand même**.
-5. L'iPhone transmet le nom et le mot de passe du Wi-Fi à la lampe, qui s'y connecte toute seule. On voit le déroulé dans les logs (`Wi-Fi: up`) ; sur la bande, une **vague bleue** pendant la connexion.
+5. L'iPhone transmet le nom et le mot de passe du Wi-Fi à la lampe, qui s'y connecte toute seule. On voit le déroulé dans les logs (`Wi-Fi: up`) ; sur la bande, un **aller-retour bleu** une fois connectée.
 6. Une fois ajoutée, la lampe « Lampe barre » se pilote depuis l'app : allumage et extinction (avec un fondu), luminosité, couleurs et blancs. Au premier allumage, elle part en blanc chaud (3000 K) à mi-luminosité ; les logs affichent `Matter: light on` / `Matter: light off`.
 
 L'appairage et le dernier état de la lampe sont **gardés en flash** ([ADR-0011](../.claude/decisions/0011-sauvegarde-matter-en-flash.md)) : après un redémarrage ou un nouveau `cargo run`, la lampe est toujours dans l'app Maison et revient comme elle était (après le test des canaux).
@@ -128,7 +132,7 @@ L'appairage et le dernier état de la lampe sont **gardés en flash** ([ADR-0011
 espflash erase-region 0x9000 0x6000
 ```
 
-**Ambiances** ([ADR-0014](../.claude/decisions/0014-interrupteurs-ambiance.md)) : l'accessoire « Lampe barre » contient aussi trois interrupteurs, un par ambiance (dans l'ordre : Coucher de soleil, Aurore boréale, Feu de camp). Les **renommer** dans l'app (Matter ne leur donne pas de nom). En allumer un affiche l'ambiance à la luminosité de la lampe ; changer la couleur de la lampe, ou l'éteindre, quitte l'ambiance.
+**Dans l'app Maison**, l'accessoire s'appelle « Matter Accessory » et contient **4 lumières** nommées « Lumière » à « Lumière 4 », dans un ordre quelconque : celle qui a un sélecteur de couleur est la lampe, les trois interrupteurs sont les **ambiances** ([ADR-0014](../.claude/decisions/0014-interrupteurs-ambiance.md)). L'app Maison ignore les noms que Matter pourrait leur donner : les **renommer** à la main. Pour savoir quel interrupteur est quelle ambiance, en allumer un et regarder le log `ambiance on: …`. En allumer un affiche l'ambiance à la luminosité de la lampe (et allume la lampe si besoin) ; l'éteindre **éteint la lampe** ([ADR-0016](../.claude/decisions/0016-quitter-une-ambiance.md)) ; choisir une couleur pour la lampe quitte l'ambiance, lampe allumée.
 
 Avec le bouton tactile, un **appui** allume ou éteint la lampe ; l'app Maison suit.
 

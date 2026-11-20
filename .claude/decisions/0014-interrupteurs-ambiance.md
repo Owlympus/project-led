@@ -1,6 +1,6 @@
 # ADR-0014 : Un interrupteur Matter par ambiance, et leurs règles avec la lampe
 
-- **Statut :** Accepté
+- **Statut :** Accepté (règle 3 remplacée par l'[ADR-0016](0016-quitter-une-ambiance.md))
 - **Date :** 2026-11-17
 
 ## Contexte

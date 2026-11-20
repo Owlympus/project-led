@@ -8,9 +8,13 @@
 use esp_hal::Async;
 use esp_hal::rmt::{Channel, Error, PulseCode, Tx};
 use led_core::Rgb;
-use ws2805::{Timing, pulses, ws2812_bytes};
+use ws2805::{ColorOrder, Timing, pulses, ws2812_bytes};
 
 use crate::pulse_code::fill;
+
+/// The board's LED is a WS2812 clone that wants red, green, blue (seen on
+/// the board on 2026-11-19: red showed green with the standard order).
+const ORDER: ColorOrder = ColorOrder::Rgb;
 
 /// 24 bits (one pulse code per bit) + 1 end marker.
 const CODES: usize = 24 + 1;
@@ -38,7 +42,7 @@ impl<'ch> BoardLed<'ch> {
         let mut codes = [PulseCode::end_marker(); CODES];
         let used = fill(
             &mut codes,
-            pulses(ws2812_bytes(color), Timing::WS2812),
+            pulses(ws2812_bytes(color, ORDER), Timing::WS2812),
             self.tick_hz,
         );
         self.channel.transmit(&codes[..used]).await

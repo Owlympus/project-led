@@ -11,6 +11,7 @@
 //! pixels, not add any.)
 
 use crate::color::Rgbcct;
+use crate::transition::Easing;
 
 /// Position along the strip in 1/256ths of a pixel: the head of a moving
 /// effect glides between two pixels instead of jumping from one to the next.
@@ -173,16 +174,62 @@ pub fn crossfade(from: &[Rgbcct], to: &mut [Rgbcct], t: u16) {
     }
 }
 
+/// A breathing light's level at `elapsed_ms` (0..=255): it rises from off
+/// to full during the first half of each period, then falls back, with soft
+/// starts and stops. Same rhythm as a [`Scanner`] of the same period: full
+/// when the head reaches the far end.
+pub fn breathe(elapsed_ms: u32, period_ms: u32) -> u8 {
+    let period_ms = period_ms.max(2);
+    let half = period_ms / 2;
+    let phase = elapsed_ms % period_ms;
+    let level = if phase < half {
+        Easing::EaseInOut.progress(phase, half)
+    } else {
+        u16::MAX - Easing::EaseInOut.progress(phase - half, half)
+    };
+    (level >> 8) as u8
+}
+
+/// One color that sums up a whole frame, for a single LED standing in for
+/// the strip: the **average** color (its hue), at the brightness of the
+/// **brightest** channel of the frame (so a narrow light, like a scanner,
+/// doesn't fade to almost nothing in the average). An empty frame is off.
+pub fn frame_preview(frame: &[Rgbcct]) -> Rgbcct {
+    if frame.is_empty() {
+        return Rgbcct::OFF;
+    }
+    // Sum each channel over the frame (u32: 30 × 255 doesn't fit in a u8).
+    let mut sums = [0u32; 5];
+    let mut peak = 0u8;
+    for pixel in frame {
+        let channels = [pixel.r, pixel.g, pixel.b, pixel.warm, pixel.cold];
+        for (sum, channel) in sums.iter_mut().zip(channels) {
+            *sum += channel as u32;
+        }
+        peak = peak.max(channels.into_iter().max().unwrap_or(0));
+    }
+    let len = frame.len() as u32;
+    let average = sums.map(|sum| sum / len);
+    let average_max = average.into_iter().max().unwrap_or(0);
+    if average_max == 0 {
+        return Rgbcct::OFF;
+    }
+    // Stretch the average so its strongest channel reaches the peak.
+    let [r, g, b, warm, cold] = average.map(|channel| (channel * peak as u32 / average_max) as u8);
+    Rgbcct::new(r, g, b, warm, cold)
+}
+
 /// The lamp's status signals: what the strip shows when it has something to
 /// say about its connection rather than the color asked by the Home app.
 /// (See the idea box in the ROADMAP.)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StatusSignal {
-    /// Not paired yet (first start, or pairing forgotten): a **red** scanner.
+    /// Not paired yet (first start, or pairing forgotten): a **red** scanner,
+    /// for as long as it lasts.
     WaitingForPairing,
-    /// Paired over Bluetooth, joining the Wi-Fi for the first time: a
-    /// **blue** scanner.
-    JoiningWifi,
+    /// Paired and on the Wi-Fi: one quick **blue** round trip, to say "all
+    /// good" (show it for [`StatusSignal::CONNECTED_MS`], then nothing).
+    Connected,
     /// Wi-Fi lost: the **first pixel** blinks red, the others keep showing
     /// the lamp's color.
     WifiLost,
@@ -199,6 +246,28 @@ const SCANNER_TAIL: u8 = 4;
 const ALERT_PERIOD_MS: u32 = 1000;
 
 impl StatusSignal {
+    /// How long to show [`StatusSignal::Connected`]: exactly one round trip.
+    pub const CONNECTED_MS: u32 = 1000;
+
+    /// The signal on a **single** LED (the dev board's), at `elapsed_ms`.
+    /// A scanner can't move on one point: it **breathes** instead, with the
+    /// same rhythm. The Wi-Fi alert blinks, like the first pixel.
+    pub fn single_led(self, elapsed_ms: u32) -> Rgbcct {
+        match self {
+            StatusSignal::WaitingForPairing => {
+                SIGNAL_RED.scale(breathe(elapsed_ms, SCANNER_PERIOD_MS))
+            }
+            StatusSignal::Connected => SIGNAL_BLUE.scale(breathe(elapsed_ms, Self::CONNECTED_MS)),
+            StatusSignal::WifiLost => {
+                if blink_on(elapsed_ms, ALERT_PERIOD_MS) {
+                    SIGNAL_RED
+                } else {
+                    Rgbcct::OFF
+                }
+            }
+        }
+    }
+
     /// Draws the signal at `elapsed_ms` into `pixels`.
     ///
     /// The scanners replace the whole frame. [`StatusSignal::WifiLost`] only
@@ -210,8 +279,8 @@ impl StatusSignal {
                 Scanner::new(SIGNAL_RED, SCANNER_PERIOD_MS, SCANNER_TAIL)
                     .render(elapsed_ms, pixels);
             }
-            StatusSignal::JoiningWifi => {
-                Scanner::new(SIGNAL_BLUE, SCANNER_PERIOD_MS, SCANNER_TAIL)
+            StatusSignal::Connected => {
+                Scanner::new(SIGNAL_BLUE, Self::CONNECTED_MS, SCANNER_TAIL)
                     .render(elapsed_ms, pixels);
             }
             StatusSignal::WifiLost => {
@@ -369,6 +438,55 @@ mod tests {
     }
 
     #[test]
+    fn preview_of_a_plain_frame_is_its_color() {
+        let warm = Rgbcct::new(0, 0, 0, 180, 40);
+        assert_eq!(frame_preview(&[warm; 30]), warm);
+        assert_eq!(frame_preview(&[]), Rgbcct::OFF);
+        assert_eq!(frame_preview(&[Rgbcct::OFF; 3]), Rgbcct::OFF);
+    }
+
+    #[test]
+    fn preview_of_a_scanner_keeps_its_color_and_brightness() {
+        let mut pixels = [Rgbcct::OFF; 30];
+        SCANNER.render(0, &mut pixels); // a narrow red light on one end
+        assert_eq!(frame_preview(&pixels), RED);
+    }
+
+    #[test]
+    fn preview_of_a_gradient_mixes_its_colors() {
+        let blue = Rgbcct::new(0, 0, 255, 0, 0);
+        let preview = frame_preview(&[RED, RED, blue, blue]);
+        assert_eq!(preview, Rgbcct::new(255, 0, 255, 0, 0), "violet");
+    }
+
+    #[test]
+    fn breathing_goes_up_then_down() {
+        assert_eq!(breathe(0, 1000), 0, "starts off");
+        assert_eq!(breathe(500, 1000), 255, "full at half period");
+        assert!(breathe(250, 1000) > 50 && breathe(250, 1000) < 205);
+        assert_eq!(breathe(1000, 1000), 0, "off again, and repeats");
+        // Symmetric: going down mirrors going up.
+        assert!(breathe(200, 1000).abs_diff(breathe(800, 1000)) <= 1);
+    }
+
+    #[test]
+    fn single_led_breathes_with_the_scanner() {
+        // Off when the scanner's head is on the first pixel…
+        assert_eq!(StatusSignal::WaitingForPairing.single_led(0), Rgbcct::OFF);
+        // …full when it reaches the far end, half way through its period.
+        assert_eq!(
+            StatusSignal::WaitingForPairing.single_led(SCANNER_PERIOD_MS / 2),
+            SIGNAL_RED
+        );
+        assert_eq!(
+            StatusSignal::Connected.single_led(StatusSignal::CONNECTED_MS / 2),
+            SIGNAL_BLUE
+        );
+        assert_eq!(StatusSignal::WifiLost.single_led(0), SIGNAL_RED);
+        assert_eq!(StatusSignal::WifiLost.single_led(600), Rgbcct::OFF);
+    }
+
+    #[test]
     fn blink_is_on_then_off() {
         assert!(blink_on(0, 1000));
         assert!(blink_on(499, 1000));
@@ -378,12 +496,23 @@ mod tests {
     }
 
     #[test]
-    fn waiting_for_pairing_is_red_and_joining_wifi_is_blue() {
+    fn waiting_for_pairing_is_red_and_connected_is_blue() {
         let mut pixels = [Rgbcct::OFF; 5];
         StatusSignal::WaitingForPairing.render(0, &mut pixels);
         assert_eq!(pixels[0], SIGNAL_RED);
 
-        StatusSignal::JoiningWifi.render(0, &mut pixels);
+        StatusSignal::Connected.render(0, &mut pixels);
+        assert_eq!(pixels[0], SIGNAL_BLUE);
+    }
+
+    #[test]
+    fn connected_is_one_round_trip() {
+        // Half way: the head is on the last pixel…
+        let mut pixels = [Rgbcct::OFF; 5];
+        StatusSignal::Connected.render(StatusSignal::CONNECTED_MS / 2, &mut pixels);
+        assert_eq!(pixels[4], SIGNAL_BLUE);
+        // …and at the end, back on the first one.
+        StatusSignal::Connected.render(StatusSignal::CONNECTED_MS, &mut pixels);
         assert_eq!(pixels[0], SIGNAL_BLUE);
     }
 

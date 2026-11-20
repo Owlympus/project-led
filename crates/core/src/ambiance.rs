@@ -52,6 +52,16 @@ impl Ambiance {
     /// Every ambiance, in a fixed order (to list them in Matter).
     pub const ALL: [Ambiance; 3] = [Ambiance::Sunset, Ambiance::Aurora, Ambiance::Campfire];
 
+    /// How many ambiances there are. A `const`: it can size arrays.
+    pub const COUNT: usize = Self::ALL.len();
+
+    /// Its position in [`Ambiance::ALL`] (to find its switch in Matter).
+    pub const fn index(self) -> usize {
+        // `as usize` gives the variant's number (0, 1, 2…, in the order of
+        // the declaration), which is the order of `ALL` (checked by a test).
+        self as usize
+    }
+
     /// The name shown to the user (logs, Home app).
     pub const fn name(self) -> &'static str {
         match self {
@@ -106,6 +116,13 @@ mod tests {
         let mut pixels = [Rgbcct::OFF; 30];
         ambiance.render(elapsed_ms, &mut pixels);
         pixels
+    }
+
+    #[test]
+    fn index_is_the_position_in_all() {
+        for (position, ambiance) in Ambiance::ALL.into_iter().enumerate() {
+            assert_eq!(ambiance.index(), position, "{ambiance:?}");
+        }
     }
 
     #[test]

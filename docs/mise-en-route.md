@@ -158,7 +158,7 @@ Au démarrage, le firmware lance un **test des canaux** : toute la bande s'allum
 | `error[E0463]: can't find crate for core` | La cible n'est pas installée : `rustup target add riscv32imac-unknown-none-elf`. |
 | L'app Maison ne trouve pas la lampe | Bluetooth de l'iPhone activé ? Lampe déjà appairée (pas de QR code dans les logs) : la supprimer de l'app, effacer la partition NVS (voir la section 7), puis recommencer. |
 | L'appairage échoue à l'étape du Wi-Fi | Réseau 5 GHz seulement, ou WPA3 seul. |
-| Panique au démarrage de Matter (*bump allocator*) | Augmenter `BUMP_SIZE` dans `firmware/src/matter.rs`. |
+| Panique au démarrage de Matter (*bump allocator*) | Augmenter `BUMP_SIZE` dans `crates/firmware/src/matter/mod.rs`. |
 | La bande clignote au hasard | Adaptateur de niveau absent ou masse non commune (voir HARDWARE, *Pièges connus*). |
 
 ## 10. Avant de commiter

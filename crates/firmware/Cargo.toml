@@ -33,7 +33,7 @@ esp-backtrace = { version = "0.20.0", features = [
   "panic-handler",
   "println",
 ] }
-esp-println = { version = "0.18.0", features = ["esp32c6", "log-04"] }
+esp-println = { version = "0.18.0", features = ["esp32c6", "log-04", "timestamp"] }
 
 # Wi-Fi + Bluetooth radio driver (it needs a heap, provided by esp-alloc).
 esp-alloc = { version = "0.11.0", features = ["esp32c6"] }

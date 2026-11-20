@@ -111,6 +111,14 @@ Pour plus de détails dans les logs : `ESP_LOG=debug cargo run` (le niveau par d
 ESP_LOG="info,firmware=debug" cargo run
 ```
 
+Chaque ligne de log commence par le temps écoulé depuis le démarrage de la puce, en millisecondes : `INFO (12345) - …`. Pratique pour chronométrer un échange avec l'Apple TV. Pour voir aussi les messages Matter envoyés et reçus (rapports d'abonnement, accusés de réception), très bavard :
+
+```bash
+ESP_LOG="info,firmware=debug,rs_matter=debug" cargo run --release
+```
+
+Côté Apple, l'app **Console** du Mac affiche en direct les logs d'un iPhone branché en USB (filtrer sur le processus `homed`, qui gère l'app Maison).
+
 ## 7. Appairer la lampe avec l'app Maison 🧪
 
 La lampe est un appareil **Matter** ([ADR-0009](../.claude/decisions/0009-matter-avec-rs-matter-embassy.md)). Il faut un concentrateur domestique (ici l'**Apple TV**) et l'iPhone sur le même réseau Wi-Fi **2,4 GHz** (le C6 ne capte pas le 5 GHz ; un réseau qui mélange les deux bandes convient).

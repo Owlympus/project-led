@@ -1,7 +1,7 @@
 # Feuille de route
 
-**Statut actuel :** étape 1 terminée ; le code des étapes 2, 3 et 4a compile mais n'a pas encore tourné sur la carte. Le code des étapes 4b (luminosité et couleurs), 4c (sauvegarde en flash), 4d (bouton tactile), 4e (signaux d'état) et 4f (ambiances) compile aussi.
-**Prochaine étape :** les tests sur le matériel dès que la carte arrive ; en attendant, d'autres ambiances, ou l'étape 5 (boîtier). La carte (Waveshare ESP32-C6-DEV-KIT-N8) est commandée. Il manque encore la bande et l'adaptateur de niveau.
+**Statut actuel :** la carte est arrivée (2026-11-19) : le firmware tourne, la lampe est appairée avec l'app Maison et se pilote depuis l'iPhone (allumage, luminosité, ambiances). Toutes les étapes jusqu'à 4f sont codées ; ce qui touche à la bande et au bouton attend leur matériel.
+**Prochaine étape :** continuer les tests sur la carte (redémarrage et mémoire, sélecteur de couleur, perte du Wi-Fi), puis brancher la bande. Il manque encore la bande, l'adaptateur de niveau et le TTP223.
 
 ## Étapes
 
@@ -18,9 +18,9 @@
 - [ ] **2. Piloter la bande depuis le C6**
   - [x] Ajouter la cible `riscv32imac-unknown-none-elf` (`rustup`), installer `espflash` et `esp-generate` (pas besoin d'`espup` : il ne sert qu'aux puces Xtensa, pas au C6 qui est RISC-V)
   - [x] Créer le crate `firmware` (Embassy, logs par USB, `led_core` qui tourne sur la puce), hors workspace (ADR-0007)
-  - [ ] Premier flash sur la carte : `espflash board-info` (8 Mo ?), puis `cargo run`
+  - [x] Premier flash sur la carte (2026-11-19) : ESP32-C6 v0.2, **8 Mo** confirmés ; `cargo run` démarre sans erreur
   - [x] Code pour la LED RGB de la carte (WS2812 sur GPIO8) via le RMT : `firmware/src/board_led.rs`, compilé mais pas encore testé sur la carte
-  - [ ] Voir la LED faire le tour de la roue chromatique sur la vraie carte
+  - [x] LED de la carte : remplace le tour de la roue chromatique par une **copie de la bande** résumée en une couleur (`frame_preview`, `rgb_preview`), pour tester sans bande, avec une respiration au rythme des vagues pour les signaux d'état (2026-11-19) ; à voir sur la carte
   - [x] Encodage WS2805 testé sur Mac : pixel → octets → bits → impulsions (`ws2805::encode`, `ws2805::timing`)
   - [x] Code de la bande via le RMT : `firmware/src/strip.rs` (canal 1, GPIO2, 30 pixels, tampon statique de ~4,8 Ko), avec un test des 5 canaux
   - [ ] Sur la vraie bande : lancer le test des canaux, vérifier l'ordre (RGB, W1/W2) et le nombre de pixels
@@ -29,7 +29,7 @@
   - [ ] (optionnel) Petite page web de test / débogage
 - [ ] **4. Matter** (lampe visible dans l'app Maison, ADR-0009)
   - [x] **4a.** `rs-matter-embassy` intégré : appairage par QR code via Bluetooth, Wi-Fi fourni par l'iPhone, lampe **On/Off** qui allume la bande en blanc 3000 K avec un fondu (`firmware/src/matter.rs`) ; compilé, pas encore testé sur la carte
-  - [ ] Sur la vraie carte : appairer avec l'app Maison, allumer / éteindre depuis l'iPhone
+  - [x] Sur la vraie carte : appairage avec l'app Maison et allumage / extinction depuis l'iPhone (2026-11-19)
   - [x] **4b.** Level Control et Color Control (luminosité, teinte/saturation, température), reliés à `led_core`
     - [x] `led_core::LightState` : allumage, luminosité, couleur (teinte/saturation ou température) → pixel, et conversions des échelles Matter (`matter_scale`)
     - [x] `matter.rs` : lampe *Extended Color Light* (Level Control, Color Control, Identify, Scenes) ; la bande suit un `LightState` ; compilé, pas encore testé sur la carte
@@ -43,7 +43,8 @@
     - [x] `led_core::effect` : `Scanner` (vague K2000), `blink_on`, `StatusSignal` (attente d'appairage, connexion au Wi-Fi, Wi-Fi perdu) ; testés sur Mac
     - [x] `firmware` : envoyer une image pixel par pixel à la bande (`Strip::show`)
     - [x] `firmware` : savoir quand Matter attend l'appairage (`has_fabrics`), rejoint le Wi-Fi ou l'a perdu (tâche utilisateur `WifiWatcher`), et afficher le signal ; compilé, pas encore testé
-  - [ ] Sur la vraie carte : vague rouge avant l'appairage, bleue au démarrage, alerte en coupant le Wi-Fi
+  - [x] Premier essai : le Wi-Fi était mal détecté (tâche utilisateur lancée dès le démarrage) ; corrigé, et vague bleue revue en « connecté » d'1 s (ADR-0015)
+  - [ ] Sur la vraie carte avec la bande : vague rouge avant l'appairage, aller-retour bleu une fois connecté, alerte en coupant le Wi-Fi
   - [x] **4f.** Ambiances (voir la boîte à idées, ADR-0014)
     - [x] Exposition choisie : **un interrupteur Matter par ambiance** ; premières ambiances : Coucher de soleil, Aurore boréale, Feu de camp
     - [x] `led_core::ambiance` : les trois ambiances, dessinées pixel par pixel ; outils `gradient_at`, `ping_pong`, `smooth_noise`, `Rgbcct::lerp` ; testés sur Mac
@@ -52,6 +53,12 @@
 - [ ] **5. Boîtier** : tube acrylique, diffusion, dissipation thermique
 
 ## Questions ouvertes
+
+- **Envoi à la bande très lent** (mesuré sur la carte le 2026-11-20) : environ 100 ms par image au lieu de ~1,5 ms attendues pour 1 201 impulsions, soit ~8 images par seconde au lieu de 50. Les animations seront saccadées. Piste : l'envoi asynchrone du RMT d'esp-hal quand les données dépassent sa mémoire (48 impulsions par canal), à mesurer puis corriger.
+
+- **Sélecteur de couleur de l'app Maison** : un clic au bord du spectre ramène le curseur vers le centre (essai du 2026-11-19). La lampe reçoit bien la **saturation maximale** (254) : c'est l'app qui replace son curseur. (La LED qui ne suivait pas les couleurs était un autre bug, corrigé le 2026-11-20 : `fade_done`.)
+- **Appairage perdu après un reflash** (essai du 2026-11-19) : le Wi-Fi et les réglages de base sont relus depuis la flash, mais pas la *fabric* (« Device is not commissioned yet »). À comprendre avec les logs de `rs_matter_embassy::persist` en `debug` : place dans les 24 Ko de la NVS, taille des données, erreur de lecture ?
+- **Noms dans l'app Maison** : l'accessoire s'appelle « Matter Accessory » et ses 4 lumières « Lumière » à « Lumière 4 ». L'app Maison semble ignorer les noms d'endpoint de Matter (Fixed Label / User Label) : les renommer à la main pour l'instant.
 
 - Bande reçue : consommation réelle en W/m (pour dimensionner l'alimentation 12 V) ?
 - Sur la bande reçue : W1 = blanc chaud ou blanc froid ? (`WhiteOrder`) Températures réelles des deux blancs ? (`STRIP_WHITE_CHANNELS`, 2700 K / 6500 K supposés)
@@ -66,7 +73,7 @@
 
 ### Boîte à idées : signaux lumineux d'état
 
-Fait (étape 4e, ADR-0013). Écart : la vague bleue s'affiche à chaque démarrage, pas seulement à la première connexion.
+Fait (étape 4e). Revu après le premier essai (ADR-0015) : la vague bleue devient un aller-retour d'1 s quand tout est connecté.
 
 - **En attente de configuration** (premier démarrage, avant l'appairage Bluetooth) : une vague **rouge** qui va et vient le long de la barre, façon K2000 (*Larson scanner*).
 - **Première connexion au Wi-Fi** (juste après la configuration Bluetooth) : la même vague, en **bleu**.

@@ -27,3 +27,6 @@ Il fallait aussi choisir le type d'appareil Matter : la bande a du RGB et deux b
 - Réserve de mémoire des futures de Matter portée à 32 Ko (+ Bluetooth), valeur de l'exemple de `rs-matter`. Si la pile panique au démarrage, l'augmenter.
 - À vérifier sur la vraie carte : le comportement de l'app Maison (quel mode de couleur elle envoie, absence de Groups), et la douceur des transitions.
 - `led_core::light::matter_scale::hue` n'est pas utilisé : `rs-matter` donne directement la teinte « étendue » sur 16 bits.
+
+## Note (2026-11-20)
+Le lissage de la bande est passé de 100 à 200 ms (`SMOOTHING_MS`) après les essais sur la carte : un simple réglage, la décision reste la même.

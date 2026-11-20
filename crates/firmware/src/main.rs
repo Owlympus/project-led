@@ -8,8 +8,8 @@
 //!   the status signals on top (waiting for pairing, Wi-Fi…);
 //! - the **touch button** ([`button`]): a tap switches the lamp on or off;
 //!   held at power-up, it makes the lamp forget its pairing;
-//! - the **dev board's RGB LED** walks around the color wheel, to show the
-//!   firmware is alive ([`board_led_task`]);
+//! - the **dev board's RGB LED** mirrors the strip, summed up in one color
+//!   (driven by [`strip_task`] too): handy to test without a strip;
 //! - a **heartbeat** message every 2 seconds.
 //!
 //! For the LEDs the chain is always the same: `led_core` computes the colors,
@@ -46,11 +46,9 @@ use esp_hal::rmt::{PulseCode, Rmt, TxChannelConfig, TxChannelCreator};
 use esp_hal::time::Rate;
 use esp_hal::timer::timg::TimerGroup;
 use esp_metadata_generated::memory_range;
-use led_core::effect::crossfade;
-use led_core::{
-    ColorTemperature, Easing, Hsv, LightState, Rgb, Rgbcct, StatusSignal, WhiteChannels,
-};
-use log::{error, info};
+use led_core::effect::{crossfade, frame_preview};
+use led_core::{ColorTemperature, Easing, LightState, Rgbcct, StatusSignal, WhiteChannels};
+use log::{debug, error, info};
 use static_cell::ConstStaticCell;
 use strip::Strip;
 use ws2805::WhiteOrder;
@@ -68,8 +66,9 @@ const RECLAIMED_RAM: usize =
 
 /// RMT clock: 80 MHz, so one tick = 12.5 ns.
 const RMT_FREQUENCY_MHZ: u32 = 80;
-/// The on-board LED is very bright up close: keep it at ~15 %.
-const BOARD_LED_BRIGHTNESS: u8 = 40;
+/// The on-board LED is very bright up close: keep it at ~30 % of what the
+/// strip shows.
+const BOARD_LED_BRIGHTNESS: u8 = 80;
 
 /// 1.5 m at 60 LEDs/m, with one WS2805 chip per 3 LEDs: 20 pixels/m, so one
 /// pixel every 5 cm. (1 chip per LED would give 90, but our strip doesn't.)
@@ -84,9 +83,11 @@ const STRIP_WHITE_CHANNELS: WhiteChannels = WhiteChannels::new(
     ColorTemperature::from_kelvin(2700),
     ColorTemperature::from_kelvin(6500),
 );
-/// Matter runs the fades itself, but in steps (every 100 ms for colors):
-/// we smooth each step over this time so they don't show (ADR-0010).
-const SMOOTHING_MS: u32 = 100;
+/// Matter runs the fades itself, but in steps (every 100 ms for colors),
+/// and the Home app's slider sends instant jumps: we smooth each change over
+/// this time so they don't show (ADR-0010). 200 ms, chosen by eye on the
+/// board: softer than the first 100 ms, still following the slider.
+const SMOOTHING_MS: u32 = 200;
 /// Entering, leaving or changing an ambiance fades over this time.
 const AMBIANCE_FADE_MS: u32 = 800;
 /// Time between two frames while smoothing (50 frames per second).
@@ -134,7 +135,6 @@ async fn main(spawner: Spawner) -> ! {
         .expect("RMT channel 1")
         .with_pin(peripherals.GPIO2);
     let strip = Strip::new(strip_channel, tick_hz, STRIP_WHITES, STRIP_CODES.take());
-    spawner.spawn(strip_task(strip).expect("strip task already running"));
 
     // Channel 0 → GPIO8, where the board's WS2812 LED is wired.
     let led_channel = rmt
@@ -143,7 +143,10 @@ async fn main(spawner: Spawner) -> ! {
         .expect("RMT channel 0")
         .with_pin(peripherals.GPIO8);
     let led = BoardLed::new(led_channel, tick_hz);
-    spawner.spawn(board_led_task(led).expect("board LED task already running"));
+
+    // One task for both: the LED shows a summary of each strip frame right
+    // after it, so they never need to talk to each other.
+    spawner.spawn(strip_task(strip, led).expect("strip task already running"));
 
     // GPIO3 → TTP223 touch sensor output. The pull-down keeps the input at
     // "not touched" if the sensor is unplugged.
@@ -178,8 +181,8 @@ fn tx_config() -> TxChannelConfig {
 /// (see `matter::LIGHT_CHANGED`) and shows the status signals on top (see
 /// `matter::STATUS_CHANGED`).
 #[embassy_executor::task]
-async fn strip_task(mut strip: Strip<'static>) {
-    channel_test(&mut strip).await;
+async fn strip_task(mut strip: Strip<'static>, mut led: BoardLed<'static>) {
+    channel_test(&mut strip, &mut led).await;
 
     let mut scene = Scene::new();
     // One frame: 30 pixels × 5 bytes, small enough for the task's stack.
@@ -189,6 +192,7 @@ async fn strip_task(mut strip: Strip<'static>) {
         // frame (exactly the target) before we go to sleep.
         scene.draw(&mut frame);
         show_frame(&mut strip, &frame).await;
+        show_on_board_led(&mut led, scene.preview(&frame)).await;
 
         if scene.is_moving() {
             // Next frame, taking whatever arrived in the meantime.
@@ -221,6 +225,11 @@ struct Scene {
     fade_from: [Rgbcct; STRIP_PIXELS],
     fade_start: Instant,
     fade_ms: u32,
+    /// Whether the last picture drawn was the fade's final one (the target).
+    /// Decided when drawing, not later: sending a frame to the strip takes
+    /// ~100 ms, so checking the clock after sending ended the fade before
+    /// its final picture was ever drawn (seen on the board, 2026-11-20).
+    fade_done: bool,
     /// The last picture drawn, same conventions as `fade_from`.
     shown: [Rgbcct; STRIP_PIXELS],
     status: Option<StatusSignal>,
@@ -235,6 +244,7 @@ impl Scene {
             fade_from: [Rgbcct::OFF; STRIP_PIXELS],
             fade_start: Instant::now(),
             fade_ms: 0,
+            fade_done: true,
             shown: [Rgbcct::OFF; STRIP_PIXELS],
             status: None,
             status_start: Instant::now(),
@@ -243,10 +253,27 @@ impl Scene {
 
     /// A new state from the Home app (or the button).
     fn light(&mut self, state: &LightState) {
+        // Log what changes for the eye (not the many brightness steps of a
+        // fade): handy to match the Home app's commands with the strip.
+        // `debug!`: hidden by default, see `ESP_LOG` in the guide.
+        let previous = &self.state;
+        if state.on != previous.on
+            || state.color != previous.color
+            || state.ambiance != previous.ambiance
+        {
+            debug!(
+                "strip: on={} color={:?} ambiance={:?}",
+                state.on,
+                state.color,
+                state.ambiance.map(led_core::Ambiance::name)
+            );
+        }
+
         // Fade from what is shown right now, so a new step in the middle of
         // a fade doesn't jump.
         self.fade_from = self.shown;
         self.fade_start = Instant::now();
+        self.fade_done = false;
         // Matter's small steps are only smoothed; entering or leaving an
         // ambiance is a real change of picture, faded more slowly.
         self.fade_ms = if state.ambiance == self.state.ambiance {
@@ -265,11 +292,22 @@ impl Scene {
         self.status_start = Instant::now();
     }
 
+    /// One color summing up `frame` for the board LED. During a status
+    /// signal, the signal's own single-LED version instead (a breathing
+    /// light where the strip has a scanner, the same blinking for the Wi-Fi
+    /// alert), gamma corrected like the frame.
+    fn preview(&self, frame: &[Rgbcct]) -> Rgbcct {
+        match self.status {
+            Some(status) => status
+                .single_led(millis_since(self.status_start))
+                .gamma_corrected(),
+            None => frame_preview(frame),
+        }
+    }
+
     /// Whether the next frames will differ from this one.
     fn is_moving(&self) -> bool {
-        self.status.is_some()
-            || self.state.is_animated()
-            || millis_since(self.fade_start) < self.fade_ms
+        self.status.is_some() || self.state.is_animated() || !self.fade_done
     }
 
     /// Fills `frame` with what to show now, gamma corrected.
@@ -280,8 +318,12 @@ impl Scene {
             millis_since(self.ambiance_start),
             frame,
         );
-        let t = Easing::EaseInOut.progress(millis_since(self.fade_start), self.fade_ms);
+        // One reading of the clock for both: the progress of this picture,
+        // and whether it is the fade's last one.
+        let elapsed = millis_since(self.fade_start);
+        let t = Easing::EaseInOut.progress(elapsed, self.fade_ms);
         crossfade(&self.fade_from, frame, t);
+        self.fade_done = elapsed >= self.fade_ms;
         self.shown = *frame;
 
         // Then the status signal on top, and gamma last.
@@ -304,7 +346,7 @@ fn millis_since(start: Instant) -> u32 {
 /// Lights the whole strip one channel at a time, 1 second each, and logs
 /// which channel *should* be on. If the strip shows something else, the
 /// channel order differs from the datasheet (see `HARDWARE.md`).
-async fn channel_test(strip: &mut Strip<'static>) {
+async fn channel_test(strip: &mut Strip<'static>, led: &mut BoardLed<'static>) {
     const L: u8 = STRIP_TEST_LEVEL;
     const STEPS: [(&str, Rgbcct); 6] = [
         ("red", Rgbcct::new(L, 0, 0, 0, 0)),
@@ -316,6 +358,7 @@ async fn channel_test(strip: &mut Strip<'static>) {
     ];
     for (name, pixel) in STEPS {
         show_color(strip, pixel).await;
+        show_on_board_led(led, pixel).await;
         info!("strip test: {name}");
         Timer::after(Duration::from_secs(1)).await;
     }
@@ -337,19 +380,14 @@ async fn show_frame(strip: &mut Strip<'static>, frame: &[Rgbcct]) {
     }
 }
 
-/// Walks the board LED around the color wheel: 2° every 40 ms, so one turn
-/// in ~7 s.
-#[embassy_executor::task]
-async fn board_led_task(mut led: BoardLed<'static>) {
-    let mut degrees: u16 = 0;
-    loop {
-        let color: Rgb = Hsv::from_degrees(degrees, 255, 255).into();
-        let shown = color.scale(BOARD_LED_BRIGHTNESS).gamma_corrected();
-        if let Err(err) = led.show(shown).await {
-            error!("board LED: {err:?}");
-        }
-        degrees = (degrees + 2) % 360;
-        Timer::after(Duration::from_millis(40)).await;
+/// Shows `pixel` (what the strip shows, summed up in one color) on the
+/// board LED, as RGB since the LED has no white channels. The colors arrive
+/// already gamma corrected, like the strip's: only the brightness is lowered
+/// here. Errors are logged and otherwise ignored, like the strip's.
+async fn show_on_board_led(led: &mut BoardLed<'static>, pixel: Rgbcct) {
+    let shown = pixel.rgb_preview().scale(BOARD_LED_BRIGHTNESS);
+    if let Err(err) = led.show(shown).await {
+        error!("board LED: {err:?}");
     }
 }
 

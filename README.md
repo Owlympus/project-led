@@ -22,7 +22,7 @@ Une bande LED **RGB + blanc chaud + blanc froid** glissée dans un tube acryliqu
 | ✨ | **Transitions douces** | Fondus à l'allumage, entre deux couleurs et entre deux ambiances ; correction gamma. |
 | 💾 | **Mémoire** | L'appairage et le dernier état sont gardés en flash : la lampe revient comme elle était après une coupure. |
 | 👆 | **Bouton tactile** | Un appui allume ou éteint la lampe (l'app suit). Maintenu au démarrage, il efface l'appairage. |
-| 🚦 | **Signaux d'état** | Vague rouge en attente d'appairage, bleue pendant la connexion au Wi-Fi, pixel qui clignote si le Wi-Fi est perdu. |
+| 🚦 | **Signaux d'état** | Vague rouge en attente d'appairage, aller-retour bleu une fois connectée, pixel qui clignote si le Wi-Fi est perdu. |
 
 ## Comment ça marche
 

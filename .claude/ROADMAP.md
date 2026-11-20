@@ -57,7 +57,7 @@
 - [x] 1. Ménage des logs et rustines de la chasse au bug de la LED
 - [x] 2. La scène dans `led_core` (`Scene<N>`), testée sur le Mac
 - [x] 3. Lenteur de l'envoi à la bande (~100 ms par image) : la bande passe au SPI + DMA (ADR-0017) ; 3,5 ms mesurées sur la carte
-- [ ] 4. Relecture du reste (`matter.rs`, autres modules)
+- [x] 4. Relecture du reste : `matter.rs` découpé en un dossier `matter/` de 9 petits modules, quelques simplifications
 
 ## Questions ouvertes
 

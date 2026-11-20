@@ -83,6 +83,11 @@ impl<const N: usize> Scene<N> {
     /// what is shown right now, so a new step in the middle of a fade
     /// doesn't jump.
     pub fn light(&mut self, state: &LightState, now_ms: u32) {
+        // The same state again (Matter sometimes repeats itself): nothing to
+        // do, and restarting the fade would only slow it down.
+        if *state == self.state {
+            return;
+        }
         self.fade_from = self.shown;
         self.fade_start_ms = now_ms;
         self.fade_done = false;
@@ -224,6 +229,19 @@ mod tests {
         let end = frame_at(&mut scene, 1_200);
         assert_eq!(end, settled(&lit(RED)));
         assert!(!scene.is_moving(), "done once the last frame is drawn");
+    }
+
+    #[test]
+    fn the_same_state_again_does_not_restart_the_fade() {
+        let mut scene = Scene::<5>::new(WHITES, FADES);
+        scene.light(&lit(RED), 1_000);
+        frame_at(&mut scene, 1_100); // halfway
+        scene.light(&lit(RED), 1_100);
+        assert_eq!(
+            frame_at(&mut scene, 1_200),
+            settled(&lit(RED)),
+            "still done at 1 200 ms"
+        );
     }
 
     /// The bug seen on the board: the first frame of a short fade was drawn,

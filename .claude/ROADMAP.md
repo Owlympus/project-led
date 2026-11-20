@@ -52,6 +52,13 @@
   - [ ] Sur la vraie carte : les tuiles dans l'app Maison, leur renommage, les règles (une seule ambiance, couleur qui la quitte…)
 - [ ] **5. Boîtier** : tube acrylique, diffusion, dissipation thermique
 
+## Relecture du code (après les premiers essais)
+
+- [x] 1. Ménage des logs et rustines de la chasse au bug de la LED
+- [x] 2. La scène dans `led_core` (`Scene<N>`), testée sur le Mac
+- [ ] 3. Lenteur de l'envoi à la bande (~100 ms par image)
+- [ ] 4. Relecture du reste (`matter.rs`, autres modules)
+
 ## Questions ouvertes
 
 - **Envoi à la bande très lent** (mesuré sur la carte le 2026-11-20) : environ 100 ms par image au lieu de ~1,5 ms attendues pour 1 201 impulsions, soit ~8 images par seconde au lieu de 50. Les animations seront saccadées. Piste : l'envoi asynchrone du RMT d'esp-hal quand les données dépassent sa mémoire (48 impulsions par canal), à mesurer puis corriger.

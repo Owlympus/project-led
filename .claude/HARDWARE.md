@@ -30,7 +30,7 @@
   - GPIO12 et 13, USB ;
   - GPIO16 et 17, UART ;
   - GPIO0 et 1, quartz 32 kHz s'il est utilisé.
-- **Données de la bande : GPIO2** (choix provisoire, canal RMT 1). Sur le brochage DevKitC, GPIO2 est en bout de barrette, à côté du 5V et du GND, pratique pour câbler l'adaptateur de niveau ; à confirmer sur la carte Waveshare. Autres candidates : GPIO6, 7, 10, 11, 18 à 23.
+- **Données de la bande : GPIO2** (choix provisoire), sortie MOSI du SPI2 avec DMA (ADR-0017). Sur le brochage DevKitC, GPIO2 est en bout de barrette, à côté du 5V et du GND, pratique pour câbler l'adaptateur de niveau ; à confirmer sur la carte Waveshare. Autres candidates : GPIO6, 7, 10, 11, 18 à 23.
 - **Bouton tactile (TTP223) : GPIO3** (choix provisoire, à côté de GPIO2), en entrée avec *pull-down* interne.
 - **LED RGB de la carte : GPIO8** (canal RMT 0), confirmé sur la carte le 2026-11-19. C'est un clone de WS2812 qui attend l'ordre **rouge, vert, bleu** (`ColorOrder::Rgb`), et non vert, rouge, bleu comme la WS2812 d'origine : avec l'ordre standard, le rouge s'affichait en vert.
 

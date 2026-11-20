@@ -56,14 +56,14 @@
 
 - [x] 1. Ménage des logs et rustines de la chasse au bug de la LED
 - [x] 2. La scène dans `led_core` (`Scene<N>`), testée sur le Mac
-- [ ] 3. Lenteur de l'envoi à la bande (~100 ms par image)
+- [x] 3. Lenteur de l'envoi à la bande (~100 ms par image) : la bande passe au SPI + DMA (ADR-0017) ; 3,5 ms mesurées sur la carte
 - [ ] 4. Relecture du reste (`matter.rs`, autres modules)
 
 ## Questions ouvertes
 
-- **Lampe « injoignable » après un redémarrage** (le temps que l'Apple TV se réabonne) : nettement raccourci par `persistent-subscriptions` et `case-resumption` (2026-11-20), à chronométrer précisément. L'afficher sur la lampe n'est pas possible aujourd'hui : `rs-matter` garde la table des abonnements privée (`MatterStack::state`). Piste : proposer un accès en lecture en amont.
+- **Lampe « injoignable » après un redémarrage** (le temps que l'Apple TV se réabonne) : raccourci par `persistent-subscriptions` et `case-resumption` (2026-11-20) : la lampe reprend l'abonnement au démarrage (`Resumed persisted subscription`) et la connexion avec l'Apple TV revient **~8 s** après le démarrage, contre 1,5 à 2 min avant. L'afficher sur la lampe n'est pas possible aujourd'hui : `rs-matter` garde la table des abonnements privée (`MatterStack::state`). Piste : proposer un accès en lecture en amont.
 
-- **Envoi à la bande très lent** (mesuré sur la carte le 2026-11-20) : environ 100 ms par image au lieu de ~1,5 ms attendues pour 1 201 impulsions, soit ~8 images par seconde au lieu de 50. Les animations seront saccadées. Piste : l'envoi asynchrone du RMT d'esp-hal quand les données dépassent sa mémoire (48 impulsions par canal), à mesurer puis corriger.
+- **Envoi à la bande très lent** (mesuré sur la carte le 2026-11-20) : ~100 ms par image avec le RMT, dont la mémoire de 48 impulsions était rechargée par notre tâche. Corrigé en passant au SPI + DMA (ADR-0017) : 3,5 ms par image mesurées ; à vérifier avec la vraie bande que le WS2805 accepte les timings (un analyseur logique sur GPIO2 permettrait de le voir avant).
 
 - **Sélecteur de couleur de l'app Maison** : un clic au bord du spectre ramène le curseur vers le centre (essai du 2026-11-19). La lampe reçoit bien la **saturation maximale** (254) : c'est l'app qui replace son curseur. (La LED qui ne suivait pas les couleurs était un autre bug, corrigé le 2026-11-20 : `fade_done`.)
 - **Appairage perdu après un reflash** (essai du 2026-11-19) : le Wi-Fi et les réglages de base sont relus depuis la flash, mais pas la *fabric* (« Device is not commissioned yet »). À comprendre avec les logs de `rs_matter_embassy::persist` en `debug` : place dans les 24 Ko de la NVS, taille des données, erreur de lecture ?

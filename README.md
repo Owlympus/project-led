@@ -33,11 +33,11 @@ flowchart LR
 
     subgraph c6["ESP32-C6"]
         fw["firmware<br/>Embassy + rs-matter"] --> core["led_core<br/>couleurs, ambiances,<br/>transitions"]
-        core --> ws["ws2805<br/>pixels → impulsions"]
-        ws --> rmt["périphérique RMT"]
+        core --> ws["ws2805<br/>pixels → bits SPI"]
+        ws --> spi["SPI + DMA"]
     end
 
-    rmt --> strip["💡 Bande WS2805<br/>30 pixels RGBCCT"]
+    spi --> strip["💡 Bande WS2805<br/>30 pixels RGBCCT"]
     btn["👆 Bouton TTP223"] --> fw
 ```
 
@@ -46,7 +46,7 @@ Le code est découpé pour que tout ce qui ne dépend pas du matériel soit **te
 | Crate | Rôle | Cible |
 |---|---|---|
 | [`led_core`](crates/core) | Couleurs (RGB, HSV), températures de blanc, transitions, état de la lampe, effets, ambiances et signaux d'état. | `no_std`, testé sur Mac |
-| [`ws2805`](crates/ws2805) | Encodage des pixels de la bande WS2805 (5 canaux) en impulsions. | `no_std`, testé sur Mac |
+| [`ws2805`](crates/ws2805) | Encodage des pixels de la bande WS2805 (5 canaux) en bits SPI, envoyés par DMA. | `no_std`, testé sur Mac |
 | [`firmware`](crates/firmware) | Le programme de la puce : tâches Embassy, pile Matter, bande, bouton, sauvegarde en flash. | ESP32-C6 (`riscv32imac`) |
 
 `led_core` et `ws2805` ne connaissent ni la puce ni Matter : ils pourront resservir à d'autres projets.

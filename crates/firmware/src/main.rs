@@ -13,8 +13,9 @@
 //! - a **heartbeat** message every 2 seconds.
 //!
 //! For the LEDs the chain is always the same: `led_core` computes the colors,
-//! `ws2805` encodes them and the RMT peripheral sends them. Logs go to the
-//! computer over USB (`cargo run` flashes and shows them).
+//! `ws2805` encodes them, and a peripheral sends them: the SPI with its DMA
+//! for the strip (ADR-0017), the RMT for the board's single LED. Logs go to
+//! the computer over USB (`cargo run` flashes and shows them).
 
 // No standard library (no OS on the chip), and no regular `fn main()`:
 // `#[esp_rtos::main]` below provides the real entry point.
@@ -42,15 +43,18 @@ use embassy_time::{Duration, Instant, Timer};
 use esp_backtrace as _; // prints a backtrace over USB if the program panics
 use esp_hal::clock::CpuClock;
 use esp_hal::gpio::{Input, InputConfig, Level, Pull};
-use esp_hal::rmt::{PulseCode, Rmt, TxChannelConfig, TxChannelCreator};
+use esp_hal::rmt::{Rmt, TxChannelConfig, TxChannelCreator};
+use esp_hal::spi::Mode as SpiMode;
+use esp_hal::spi::master::{Config as SpiConfig, Spi};
 use esp_hal::time::Rate;
 use esp_hal::timer::timg::TimerGroup;
+use esp_hal::{dma_rx_buffer, dma_tx_buffer};
 use esp_metadata_generated::memory_range;
 use led_core::{ColorTemperature, FadeTimes, LightState, Rgbcct, Scene, WhiteChannels};
 use log::{debug, error, info};
 use static_cell::ConstStaticCell;
 use strip::Strip;
-use ws2805::WhiteOrder;
+use ws2805::{WhiteOrder, spi};
 
 // Metadata required by the bootloader (version, build date…).
 esp_bootloader_esp_idf::esp_app_desc!();
@@ -97,17 +101,23 @@ const FADE_TIMES: FadeTimes = FadeTimes {
 /// Time between two frames while smoothing (50 frames per second).
 const FRAME_MS: u64 = 20;
 
-/// What the strip shows (≈340 bytes): in a `static`, like the codes below,
+/// What the strip shows (≈340 bytes): in a `static`, like the buffer below,
 /// rather than in the task. `ConstStaticCell` hands out the one and only
 /// `&'static mut` to it.
 static SCENE: ConstStaticCell<Scene<STRIP_PIXELS>> =
     ConstStaticCell::new(Scene::new(STRIP_WHITE_CHANNELS, FADE_TIMES));
 
-/// The strip's RMT codes (30 × 40 + 1 codes × 4 bytes ≈ 4.8 KB). A `static`
-/// lives in RAM for the whole program instead of the small task stack;
-/// `ConstStaticCell` hands out the one and only `&'static mut` to it.
-static STRIP_CODES: ConstStaticCell<[PulseCode; strip::codes_len(STRIP_PIXELS)]> =
-    ConstStaticCell::new([PulseCode::end_marker(); strip::codes_len(STRIP_PIXELS)]);
+/// Where each strip frame is encoded as SPI bytes (840 bytes for 30 pixels,
+/// see `ws2805::spi`). A `static` lives in RAM for the whole program instead
+/// of the small task stack; `ConstStaticCell` hands out the one and only
+/// `&'static mut` to it.
+static STRIP_BUFFER: ConstStaticCell<[u8; spi::buffer_len(STRIP_PIXELS)]> =
+    ConstStaticCell::new([0; spi::buffer_len(STRIP_PIXELS)]);
+/// The DMA's own working buffers: the transmit one must hold a whole frame,
+/// so it is never sent in two pieces (a gap in the middle would end the
+/// frame early). Nothing is ever received from the strip.
+const DMA_TX_BYTES: usize = 1024;
+const DMA_RX_BYTES: usize = 4;
 
 #[allow(
     clippy::large_stack_frames,
@@ -130,21 +140,29 @@ async fn main(spawner: Spawner) -> ! {
 
     spawner.spawn(heartbeat().expect("heartbeat task already running"));
 
-    // The C6's RMT has 2 transmit channels: one for the board LED, one for
-    // the strip.
+    // The strip: SPI2 with its DMA (ADR-0017). Only the data line (MOSI) is
+    // used: GPIO2 → level shifter → strip DIN.
+    let dma_tx = dma_tx_buffer!(DMA_TX_BYTES).expect("DMA transmit buffer");
+    let dma_rx = dma_rx_buffer!(DMA_RX_BYTES).expect("DMA receive buffer");
+    let strip_spi = Spi::new(
+        peripherals.SPI2,
+        SpiConfig::default()
+            .with_frequency(Rate::from_hz(spi::SPI_FREQUENCY_HZ))
+            .with_mode(SpiMode::_0),
+    )
+    .expect("SPI for the strip")
+    .with_mosi(peripherals.GPIO2)
+    .with_dma(peripherals.DMA_CH0)
+    .with_buffers(dma_rx, dma_tx)
+    .into_async();
+    let strip = Strip::new(strip_spi, STRIP_WHITES, STRIP_BUFFER.take());
+
+    // The board LED: the RMT, whose small memory holds its 25 pulses at once.
     let rmt = Rmt::new(peripherals.RMT, Rate::from_mhz(RMT_FREQUENCY_MHZ))
         .expect("RMT clock")
         .into_async();
     let tick_hz = rmt.frequency().as_hz(); // the frequency actually obtained
     info!("RMT at {tick_hz} Hz");
-
-    // Channel 1 → GPIO2 → level shifter → strip DIN.
-    let strip_channel = rmt
-        .channel1
-        .configure_tx(&tx_config())
-        .expect("RMT channel 1")
-        .with_pin(peripherals.GPIO2);
-    let strip = Strip::new(strip_channel, tick_hz, STRIP_WHITES, STRIP_CODES.take());
 
     // Channel 0 → GPIO8, where the board's WS2812 LED is wired.
     let led_channel = rmt
@@ -179,7 +197,7 @@ async fn main(spawner: Spawner) -> ! {
     .await
 }
 
-/// RMT settings shared by the LED and the strip.
+/// RMT settings for the board LED.
 fn tx_config() -> TxChannelConfig {
     TxChannelConfig::default()
         .with_clk_divider(1) // count ticks at the full RMT clock
@@ -266,8 +284,17 @@ async fn channel_test(strip: &mut Strip<'static>, led: &mut BoardLed<'static>) {
         ("cold white", Rgbcct::new(0, 0, 0, 0, L)),
         ("off", Rgbcct::OFF),
     ];
-    for (name, pixel) in STEPS {
+    for (index, (name, pixel)) in STEPS.into_iter().enumerate() {
+        let start = Instant::now();
         show_color(strip, pixel).await;
+        if index == 0 {
+            // Once, to check the strip is fed fast enough (~2.6 ms expected
+            // with the SPI + DMA, ADR-0017).
+            info!(
+                "strip: one frame sent in {} µs",
+                start.elapsed().as_micros()
+            );
+        }
         show_on_board_led(led, pixel).await;
         info!("strip test: {name}");
         Timer::after(Duration::from_secs(1)).await;

@@ -1,63 +1,48 @@
-//! The WS2805 strip, driven by the RMT peripheral.
+//! The WS2805 strip, driven by the SPI peripheral and its DMA (ADR-0017).
 //!
-//! Same chain as the on-board LED (`led_core` → `ws2805` → RMT), with 40 bits
-//! per pixel. The RMT needs all the codes of a frame in one array: for 30
-//! pixels that is 1201 codes × 4 bytes ≈ 4.8 KB. It is too big for the stack,
-//! so the caller provides a `'static` buffer sized with [`codes_len`].
+//! Each WS2805 bit becomes 4 SPI bits (see `ws2805::spi`), and a whole frame
+//! (840 bytes for 30 pixels, resets included) is prepared in one buffer. The
+//! DMA then sends it by itself: the CPU is free during the ~2.6 ms of the
+//! transfer, and nothing can cut the signal halfway.
+//!
+//! (The RMT, first used here, has room for only 48 pulses and relies on our
+//! task to refill it every ~30 µs: with Matter and the Wi-Fi around, frames
+//! took ~100 ms and would have shown wrong pixels.)
 
 use esp_hal::Async;
-use esp_hal::rmt::{Channel, Error, PulseCode, Tx};
+use esp_hal::spi::Error;
+use esp_hal::spi::master::SpiDma;
 use led_core::Rgbcct;
-use ws2805::{Timing, WhiteOrder, pulses, strip_bytes};
-
-use crate::pulse_code::fill;
-
-/// Bits sent per WS2805 pixel (5 channels × 8 bits).
-const BITS_PER_PIXEL: usize = 40;
-
-/// Number of RMT codes needed to send `pixels` pixels: one per bit, plus the
-/// end marker. `const fn` so it can size a `static` array.
-pub const fn codes_len(pixels: usize) -> usize {
-    pixels * BITS_PER_PIXEL + 1
-}
+use ws2805::{WhiteOrder, spi, strip_bytes};
 
 /// A WS2805 strip.
-pub struct Strip<'ch> {
-    channel: Channel<'ch, Async, Tx>,
-    tick_hz: u32,
+pub struct Strip<'d> {
+    spi: SpiDma<'d, Async>,
     whites: WhiteOrder,
-    /// Where each frame is encoded before the RMT sends it.
-    codes: &'static mut [PulseCode],
+    /// Where each frame is encoded before the DMA sends it.
+    buffer: &'static mut [u8],
 }
 
-impl<'ch> Strip<'ch> {
-    /// `channel` must be an RMT TX channel wired (through the level shifter)
-    /// to the strip's DIN. `codes` must hold at least
-    /// `codes_len(number of pixels)` codes.
-    pub fn new(
-        channel: Channel<'ch, Async, Tx>,
-        tick_hz: u32,
-        whites: WhiteOrder,
-        codes: &'static mut [PulseCode],
-    ) -> Self {
+impl<'d> Strip<'d> {
+    /// `spi` must send at `ws2805::spi::SPI_FREQUENCY_HZ`, its data pin
+    /// (MOSI) wired through the level shifter to the strip's DIN. `buffer`
+    /// must hold at least `ws2805::spi::buffer_len(number of pixels)` bytes.
+    pub fn new(spi: SpiDma<'d, Async>, whites: WhiteOrder, buffer: &'static mut [u8]) -> Self {
         Self {
-            channel,
-            tick_hz,
+            spi,
             whites,
-            codes,
+            buffer,
         }
     }
 
     /// How many pixels the buffer can hold.
     pub fn capacity(&self) -> usize {
-        (self.codes.len() - 1) / BITS_PER_PIXEL
+        (self.buffer.len() - 2 * spi::RESET_BYTES) / spi::BYTES_PER_PIXEL
     }
 
     /// Lights the whole strip (all [`Strip::capacity`] pixels) with one color,
     /// without needing an array of pixels. The pixel is sent as is: apply
     /// brightness and gamma correction before (see `led_core`).
-    ///
-    /// Wait at least `Timing::WS2805.reset_us` before the next frame.
     pub async fn show_all(&mut self, pixel: Rgbcct) -> Result<(), Error> {
         self.send(core::iter::repeat_n(pixel, self.capacity()))
             .await
@@ -73,10 +58,9 @@ impl<'ch> Strip<'ch> {
         self.send(pixels.iter().copied().take(capacity)).await
     }
 
-    /// Encodes `pixels` into the code buffer and sends it.
+    /// Encodes `pixels` into the buffer and lets the DMA send it.
     async fn send(&mut self, pixels: impl Iterator<Item = Rgbcct>) -> Result<(), Error> {
-        let wire = pulses(strip_bytes(pixels, self.whites), Timing::WS2805);
-        let used = fill(self.codes, wire, self.tick_hz);
-        self.channel.transmit(&self.codes[..used]).await
+        let used = spi::fill(self.buffer, strip_bytes(pixels, self.whites));
+        self.spi.write_async(&self.buffer[..used]).await
     }
 }

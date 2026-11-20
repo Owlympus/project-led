@@ -8,7 +8,9 @@
 //! This crate is split in two layers:
 //! - [`encode`] and [`timing`]: pixel → bytes → bits → pulses. Pure logic,
 //!   tested on the Mac with `cargo test -p ws2805`;
-//! - *(to come)* sending the pulses with the ESP32-C6 RMT peripheral.
+//! - [`spi`]: the same bits as SPI bytes, for sending the whole strip with
+//!   the SPI peripheral and its DMA (ADR-0017). The RMT still drives the dev
+//!   board's single LED (see `firmware`).
 //!
 //! Pixels must already be gamma corrected (see `led_core::gamma`): this crate
 //! sends values as they are.
@@ -16,6 +18,7 @@
 #![cfg_attr(not(test), no_std)]
 
 pub mod encode;
+pub mod spi;
 pub mod timing;
 
 pub use encode::{ColorOrder, WhiteOrder, bits, pulses, strip_bytes, ws2805_bytes, ws2812_bytes};

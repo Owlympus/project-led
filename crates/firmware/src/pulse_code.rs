@@ -1,7 +1,7 @@
 //! Turning `ws2805` pulses (in nanoseconds) into RMT pulse codes (in ticks).
 //!
-//! Shared by the on-board LED ([`crate::board_led`]) and the strip
-//! ([`crate::strip`]).
+//! Used by the on-board LED ([`crate::board_led`]); the strip goes through
+//! the SPI instead (see [`crate::strip`]).
 
 use esp_hal::gpio::Level;
 use esp_hal::rmt::PulseCode;

@@ -328,6 +328,24 @@ async fn show_on_board_led(led: &mut BoardLed<'static>, pixel: Rgbcct) {
     }
 }
 
+/// The time printed at the start of each log line, in milliseconds since
+/// the chip started: `INFO (12345) - …`. Handy to time what happens between
+/// the lamp and the Apple TV.
+///
+/// `esp-println` (with its `timestamp` feature) declares this function
+/// without defining it, and calls it by its exact name: `no_mangle` keeps
+/// that name in the program (Rust usually renames functions internally).
+/// It is `unsafe` to promise: no other function may have the same name.
+///
+/// `esp_hal`'s clock, not Embassy's: it works from the very first log line,
+/// before Embassy is started.
+#[unsafe(no_mangle)]
+pub extern "Rust" fn _esp_println_timestamp() -> u64 {
+    esp_hal::time::Instant::now()
+        .duration_since_epoch()
+        .as_millis()
+}
+
 /// Logs a message every 2 seconds, to show that tasks run side by side.
 #[embassy_executor::task]
 async fn heartbeat() {

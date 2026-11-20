@@ -61,6 +61,8 @@
 
 ## Questions ouvertes
 
+- **Lampe « injoignable » après un redémarrage** (le temps que l'Apple TV se réabonne) : nettement raccourci par `persistent-subscriptions` et `case-resumption` (2026-11-20), à chronométrer précisément. L'afficher sur la lampe n'est pas possible aujourd'hui : `rs-matter` garde la table des abonnements privée (`MatterStack::state`). Piste : proposer un accès en lecture en amont.
+
 - **Envoi à la bande très lent** (mesuré sur la carte le 2026-11-20) : environ 100 ms par image au lieu de ~1,5 ms attendues pour 1 201 impulsions, soit ~8 images par seconde au lieu de 50. Les animations seront saccadées. Piste : l'envoi asynchrone du RMT d'esp-hal quand les données dépassent sa mémoire (48 impulsions par canal), à mesurer puis corriger.
 
 - **Sélecteur de couleur de l'app Maison** : un clic au bord du spectre ramène le curseur vers le centre (essai du 2026-11-19). La lampe reçoit bien la **saturation maximale** (254) : c'est l'app qui replace son curseur. (La LED qui ne suivait pas les couleurs était un autre bug, corrigé le 2026-11-20 : `fade_done`.)

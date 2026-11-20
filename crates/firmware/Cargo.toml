@@ -50,10 +50,15 @@ esp-metadata-generated = { version = "0.5", features = ["esp32c6"] }
 
 # Matter (ADR-0009). Not published on crates.io in a usable version yet:
 # taken from GitHub, pinned to a commit (`rev`) so builds stay reproducible.
+# `case-resumption` and `persistent-subscriptions`: reconnect to the Apple TV
+# faster after a restart (resume the secure session, and the subscriptions
+# saved in flash instead of waiting for the Apple TV to subscribe again).
 rs-matter-embassy = { git = "https://github.com/sysgrok/rs-matter-embassy", rev = "252cc60e7865a474b998e47fa0149af0a6648cd6", default-features = false, features = [
+  "case-resumption",
   "embassy-net",
   "esp",
   "log",
+  "persistent-subscriptions",
   "rustcrypto",
   "trouble",
 ] }

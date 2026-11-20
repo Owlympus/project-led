@@ -124,6 +124,8 @@ La lampe est un appareil **Matter** ([ADR-0009](../.claude/decisions/0009-matter
 
 L'appairage et le dernier état de la lampe sont **gardés en flash** ([ADR-0011](../.claude/decisions/0011-sauvegarde-matter-en-flash.md)) : après un redémarrage ou un nouveau `cargo run`, la lampe est toujours dans l'app Maison et revient comme elle était (après le test des canaux).
 
+Après un redémarrage, l'app Maison peut afficher la lampe **« injoignable »** quelques secondes, le temps que l'Apple TV la retrouve : elle se réabonne à ses changements (log `Subscription … primed`). Les abonnements sont gardés en flash et repris au démarrage (options `persistent-subscriptions` et `case-resumption` de `rs-matter-embassy`), ce qui raccourcit nettement cette attente ; le tout premier démarrage après leur activation reste lent, faute d'abonnement enregistré.
+
 **Repartir de zéro** (par exemple si la lampe a été supprimée de l'app Maison et n'est plus proposée à l'ajout) : il faut effacer la partition où Matter range ses données. Deux façons :
 - avec le **bouton tactile** (s'il est branché) : le maintenir en branchant la lampe, et le garder **5 s** jusqu'au message `the pairing will be forgotten` dans les logs ([ADR-0012](../.claude/decisions/0012-bouton-tactile.md)) ;
 - depuis le Mac, puis relancer `cargo run` pour retrouver le QR code. Avec la table de partitions par défaut, cette partition (NVS) fait 24 Ko à l'adresse 0x9000 :

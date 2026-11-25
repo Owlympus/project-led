@@ -17,7 +17,7 @@ Une bande LED **RGB + blanc chaud + blanc froid** glissée dans un tube acryliqu
 | | Fonctionnalité | Détail |
 |---|---|---|
 | 🏠 | **App Maison native** | Lampe Matter (*Extended Color Light*), appairée par QR code via Bluetooth ; l'iPhone lui transmet le Wi-Fi. |
-| 🎨 | **Couleurs et blancs** | Luminosité, teinte et saturation, température de blanc de 2700 K à 6500 K, grâce aux deux LED blanches. |
+| 🎨 | **Couleurs et blancs** | Luminosité, teinte et saturation, température de blanc de 3000 K à 6500 K, grâce aux deux LED blanches. |
 | 🌅 | **Ambiances** | *Coucher de soleil*, *Aurore boréale*, *Feu de camp* : des dégradés et animations pixel par pixel, chacun pilotable comme un interrupteur dans l'app Maison (scènes, automatisations, Siri). |
 | ✨ | **Transitions douces** | Fondus à l'allumage, entre deux couleurs et entre deux ambiances ; correction gamma. |
 | 💾 | **Mémoire** | L'appairage et le dernier état sont gardés en flash : la lampe revient comme elle était après une coupure. |

@@ -5,13 +5,13 @@
 | Élément | Détail | Statut |
 |---|---|---|
 | Microcontrôleur | **Waveshare ESP32-C6-DEV-KIT-N8** (module ESP32-C6-WROOM-1, 8 Mo de flash), voir ci-dessous | ✅ commandé |
-| Bande LED | WS2805 RGBCCT, 12 V, 60 LEDs/m, **1 puce pour 3 LEDs** (20 pixels/m, soit **30 pixels** sur 1,5 m), IP30 de préférence | ✅ choisie (pas de version 1 puce/LED trouvée) |
-| Alimentation | 12 V, puissance = W/m × 1,5 m + 20 à 30 % de marge | ⏳ dépend de la consommation de la bande |
+| Bande LED | **SEZO WS2805 RGBCCT** (AliExpress), DC12V, IP30, 3 m : 60 LEDs/m, **1 puce pour 3 LEDs** (20 pixels/m, soit **30 pixels** sur 1,5 m, coupe tous les 50 mm), **15 W/m**, ruban de 10 mm, blancs **3000 K / 6500 K** (photos de l'annonce), connecteur JST SM 4 broches | ✅ commandée (2026-11-24) |
+| Alimentation | LED driver ultra-mince **12 V 36 W** (3 A), 230 V raccordé au bornier : 1,5 m × 15 W/m = 22,5 W au maximum, ~40 % de marge | ✅ commandée (2026-11-24) |
 | Abaisseur de tension | 12 V → 5 V / 3,3 V pour alimenter l'ESP32 | ✅ acheté |
-| Adaptateur de niveau | **74AHCT125** (ou SN74AHCT1G125) alimenté en 5 V, sur la ligne de données | ❌ à acheter |
+| Adaptateur de niveau | **74AHCT125** (ou SN74AHCT1G125) alimenté en 5 V, sur la ligne de données | ✅ commandé (2026-11-24) |
 | Résistance | ~330 Ω en série sur la ligne de données | ❌ à acheter |
 | Condensateur | ~1000 µF / 16 V minimum, sur l'alimentation de la bande | ❌ à acheter |
-| Bouton | Capteur tactile **TTP223**, alimenté en **3,3 V**, sortie sur GPIO3 (ADR-0012) | ❌ à acheter (code prêt) |
+| Bouton | Capteur tactile **TTP223**, alimenté en **3,3 V**, sortie sur GPIO3 (ADR-0012) | ✅ commandé (code prêt, à tester) |
 | Boîtier | Tube acrylique diffusant | ❌ plus tard |
 
 ## Carte de développement : Waveshare ESP32-C6-DEV-KIT-N8
@@ -67,11 +67,12 @@ GND : COMMUNE entre l'alim, l'ESP32, le 74AHCT125, le TTP223 et la bande
 
 ## Protocole de la bande (fiche technique WS2805)
 
+- **Broches de la bande** (annonce SEZO) : **12V / DIN / BIN / GND**. BIN est la ligne de secours (le signal saute un pixel en panne) : sur le premier pixel, à relier en principe à **GND**, à confirmer avec la fiche technique avant le premier branchement.
 - 40 bits par pixel, dans l'ordre **R, G, B, W1, W2**, bit de poids fort en premier.
 - Bit 0 : haut 220 à 380 ns. Bit 1 : haut 580 à 1000 ns. Bas : 580 à 1000 ns dans les deux cas. Période d'un bit ≥ 1,25 µs.
 - Reset (affichage) : ligne basse pendant plus de 280 µs.
 - Valeurs retenues : `ws2805::Timing::WS2805`.
-- **À vérifier sur la bande reçue :** W1 = blanc chaud ou froid ? (`ws2805::WhiteOrder`). L'ordre R, G, B est aussi à confirmer, certains fabricants le changent.
+- **À vérifier sur la bande reçue :** W1 = blanc chaud (3000 K) ou froid (6500 K) ? (`ws2805::WhiteOrder`). L'ordre R, G, B est aussi à confirmer, certains fabricants le changent.
 - **Test des canaux :** le firmware allume toute la bande un canal à la fois, 1 s chacun (~25 %), et écrit dans les logs le canal attendu : rouge, vert, bleu, blanc chaud, blanc froid, éteint. Si la bande montre autre chose, l'ordre diffère : changer `STRIP_WHITES` dans `firmware/src/main.rs` (ou l'ordre RGB dans `ws2805`).
 
 ## Pièges connus

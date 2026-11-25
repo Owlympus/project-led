@@ -1,7 +1,7 @@
 # Feuille de route
 
 **Statut actuel :** la carte est arrivée (2026-11-19) : le firmware tourne, la lampe est appairée avec l'app Maison et se pilote depuis l'iPhone (allumage, luminosité, ambiances). Toutes les étapes jusqu'à 4f sont codées ; ce qui touche à la bande et au bouton attend leur matériel.
-**Prochaine étape :** continuer les tests sur la carte (redémarrage et mémoire, sélecteur de couleur, perte du Wi-Fi), puis brancher la bande. Il manque encore la bande, l'adaptateur de niveau et le TTP223.
+**Prochaine étape :** continuer les tests sur la carte (redémarrage et mémoire, sélecteur de couleur, perte du Wi-Fi), puis brancher la bande. Bande, alimentation, 74AHCT125 et TTP223 commandés (2026-11-24) ; il manque encore la résistance de 330 Ω, le condensateur de 1000 µF et les fiches JST SM.
 
 ## Étapes
 
@@ -70,8 +70,8 @@
 - **Interrupteurs d'ambiance lents à s'éteindre dans l'app Maison** (3-4 s, essai du 2026-11-21) quand c'est la lampe qui les éteint (autre ambiance, nouvelle couleur). Côté lampe, `rs-matter` envoie le rapport sans attendre (`min_int_secs: 0`) et la veille du Wi-Fi est coupée. **Mesuré avec les logs horodatés** : l'Apple TV accuse réception du rapport « interrupteur éteint » moins de 0,1 s après la commande (allers-retours de 15 à 25 ms). Le délai est donc entre l'Apple TV et l'iPhone (ou dans l'app Maison) : rien à faire côté firmware. L'app Console (iPhone branché, processus `homed`) permettrait de voir où, sans pouvoir le changer.
 - **Noms dans l'app Maison** : l'accessoire s'appelle « Matter Accessory » et ses 4 lumières « Lumière » à « Lumière 4 ». L'app Maison semble ignorer les noms d'endpoint de Matter (Fixed Label / User Label) : les renommer à la main pour l'instant.
 
-- Bande reçue : consommation réelle en W/m (pour dimensionner l'alimentation 12 V) ?
-- Sur la bande reçue : W1 = blanc chaud ou blanc froid ? (`WhiteOrder`) Températures réelles des deux blancs ? (`STRIP_WHITE_CHANNELS`, 2700 K / 6500 K supposés)
+- Bande reçue : consommation réelle en W/m ? (annoncée : 15 W/m, alimentation de 36 W commandée)
+- Sur la bande reçue : W1 = blanc chaud ou blanc froid ? (`WhiteOrder`) Températures des blancs : 3000 K / 6500 K d'après l'annonce (`STRIP_WHITE_CHANNELS`) ; BIN du premier pixel à relier à GND ? (fiche technique)
 - Génération de l'Apple TV 4K (Thread possible ou non) ?
 - GPIO utilisée pour les données de la bande ? (candidates dans `HARDWARE.md`)
 - Boîtier pas encore défini (tube acrylique, pièces imprimées en 3D, lest dans le pied…). Seule contrainte connue : pas de métal autour de l'antenne.

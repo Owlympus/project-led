@@ -11,7 +11,7 @@
 | Adaptateur de niveau | **74AHCT125** (ou SN74AHCT1G125) alimenté en 5 V, sur la ligne de données | ✅ commandé (2026-11-24) |
 | Résistance | ~330 Ω en série sur la ligne de données | ❌ à acheter |
 | Condensateur | ~1000 µF / 16 V minimum, sur l'alimentation de la bande | ❌ à acheter |
-| Bouton | Capteur tactile **TTP223**, alimenté en **3,3 V**, sortie sur GPIO3 (ADR-0012) | ✅ commandé (code prêt, à tester) |
+| Bouton | Capteur tactile **TTP223**, alimenté en **3,3 V**, sortie sur GPIO3 (ADR-0012) | ✅ testé sur la carte (2026-11-25) |
 | Boîtier | Tube acrylique diffusant | ❌ plus tard |
 
 ## Carte de développement : Waveshare ESP32-C6-DEV-KIT-N8

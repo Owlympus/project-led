@@ -1,7 +1,7 @@
 # Feuille de route
 
 **Statut actuel :** la carte est arrivée (2026-11-19) : le firmware tourne, la lampe est appairée avec l'app Maison et se pilote depuis l'iPhone (allumage, luminosité, ambiances). Toutes les étapes jusqu'à 4f sont codées ; ce qui touche à la bande et au bouton attend leur matériel.
-**Prochaine étape :** continuer les tests sur la carte (redémarrage et mémoire, sélecteur de couleur, perte du Wi-Fi), puis brancher la bande. Bande, alimentation, 74AHCT125 et TTP223 commandés (2026-11-24) ; il manque encore la résistance de 330 Ω, le condensateur de 1000 µF et les fiches JST SM.
+**Prochaine étape :** continuer les tests sur la carte (redémarrage et mémoire, sélecteur de couleur, perte du Wi-Fi), puis brancher la bande. Bande, alimentation et 74AHCT125 commandés (2026-11-24), bouton TTP223 testé (2026-11-25) ; il manque encore la résistance de 330 Ω, le condensateur de 1000 µF et les fiches JST SM.
 
 ## Étapes
 
@@ -67,7 +67,7 @@
 
 - **Sélecteur de couleur de l'app Maison** : un clic au bord du spectre ramène le curseur vers le centre (essai du 2026-11-19). La lampe reçoit bien la **saturation maximale** (254) : c'est l'app qui replace son curseur. (La LED qui ne suivait pas les couleurs était un autre bug, corrigé le 2026-11-20 : `fade_done`.)
 - **Appairage perdu après un reflash** (essai du 2026-11-19) : le Wi-Fi et les réglages de base sont relus depuis la flash, mais pas la *fabric* (« Device is not commissioned yet »). À comprendre avec les logs de `rs_matter_embassy::persist` en `debug` : place dans les 24 Ko de la NVS, taille des données, erreur de lecture ?
-- **Interrupteurs d'ambiance lents à s'éteindre dans l'app Maison** (3-4 s, essai du 2026-11-21) quand c'est la lampe qui les éteint (autre ambiance, nouvelle couleur). Côté lampe, `rs-matter` envoie le rapport sans attendre (`min_int_secs: 0`) et la veille du Wi-Fi est coupée. **Mesuré avec les logs horodatés** : l'Apple TV accuse réception du rapport « interrupteur éteint » moins de 0,1 s après la commande (allers-retours de 15 à 25 ms). Le délai est donc entre l'Apple TV et l'iPhone (ou dans l'app Maison) : rien à faire côté firmware. L'app Console (iPhone branché, processus `homed`) permettrait de voir où, sans pouvoir le changer.
+- **Interrupteurs d'ambiance lents à s'éteindre dans l'app Maison** (3-4 s, essai du 2026-11-21) quand c'est la lampe qui les éteint (autre ambiance, nouvelle couleur). Côté lampe, `rs-matter` envoie le rapport sans attendre (`min_int_secs: 0`) et la veille du Wi-Fi est coupée. **Mesuré avec les logs horodatés** : l'Apple TV accuse réception du rapport « interrupteur éteint » moins de 0,1 s après la commande. Et un appui sur le bouton tactile (changement venu de la lampe, sans action dans l'app) s'affiche **instantanément** dans l'app Maison (2026-11-25) : le relais Apple TV → iPhone est donc rapide. Hypothèse : l'app Maison garde son propre affichage quelques secondes après une commande, avant d'accepter les mises à jour de l'accessoire touché. Rien à faire côté firmware.
 - **Noms dans l'app Maison** : l'accessoire s'appelle « Matter Accessory » et ses 4 lumières « Lumière » à « Lumière 4 ». L'app Maison semble ignorer les noms d'endpoint de Matter (Fixed Label / User Label) : les renommer à la main pour l'instant.
 
 - Bande reçue : consommation réelle en W/m ? (annoncée : 15 W/m, alimentation de 36 W commandée)

@@ -27,6 +27,7 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Les
 - 2026-11-17 : bande à **30 pixels** (1 puce WS2805 pour 3 LEDs) au lieu de 90 : `STRIP_PIXELS`, tampon RMT ramené à ~4,8 Ko ; doc (HARDWARE, ADR-0002, ROADMAP).
 
 ### Ajouté
+- 2026-11-25 : **bouton tactile TTP223 testé sur la carte** (3V3, GND, GPIO3) : chaque appui bascule la lampe une seule fois, avec le fondu de 0,4 s, et l'app Maison suit instantanément.
 - 2026-11-21 : `firmware` : **logs horodatés** (option `timestamp` d'`esp-println`, fonction `_esp_println_timestamp`) : chaque ligne commence par les millisecondes depuis le démarrage (`INFO (12345) - …`), pour chronométrer le délai des interrupteurs d'ambiance dans l'app Maison ; méthode de mesure dans `docs/mise-en-route.md`.
 - 2026-11-19 : **premier essai sur la vraie carte** : ESP32-C6 v0.2 avec 8 Mo de flash ; firmware flashé et démarré ; appairage avec l'app Maison réussi (Bluetooth, Wi-Fi transmis, IP obtenue) ; allumage, luminosité, extinction avec fondu et ambiances pilotés depuis l'iPhone ; mémoire de Matter suffisante (~27 Ko utilisés sur 37 Ko) ; absence du cluster Groups sans effet.
 - 2026-11-18 : **licence** : double licence MIT OU Apache-2.0 (`LICENSE-MIT`, `LICENSE-APACHE`, textes officiels), champ `license` dans les trois crates, section et badge dans le README.

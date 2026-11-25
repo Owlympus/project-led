@@ -1,7 +1,7 @@
 # Feuille de route
 
-**Statut actuel :** la carte est arrivée (2026-11-19) : le firmware tourne, la lampe est appairée avec l'app Maison et se pilote depuis l'iPhone (allumage, luminosité, ambiances). Toutes les étapes jusqu'à 4f sont codées ; ce qui touche à la bande et au bouton attend leur matériel.
-**Prochaine étape :** continuer les tests sur la carte (redémarrage et mémoire, sélecteur de couleur, perte du Wi-Fi), puis brancher la bande. Bande, alimentation et 74AHCT125 commandés (2026-11-24), bouton TTP223 testé (2026-11-25) ; il manque encore la résistance de 330 Ω, le condensateur de 1000 µF et les fiches JST SM.
+**Statut actuel :** la carte est arrivée (2026-11-19) : le firmware tourne, la lampe est appairée avec l'app Maison et se pilote depuis l'iPhone (allumage, luminosité, ambiances). Toutes les étapes jusqu'à 4f sont codées ; ce qui touche à la bande attend son matériel.
+**Prochaine étape :** continuer les tests sur la carte (retour au dernier état après un redémarrage, maintien du bouton 5 s, sélecteur de couleur, perte du Wi-Fi), puis brancher la bande. Bande, alimentation et 74AHCT125 commandés (2026-11-24), bouton TTP223 testé (2026-11-25) ; il manque encore la résistance de 330 Ω, le condensateur de 1000 µF et les fiches JST SM.
 
 ## Étapes
 
@@ -19,10 +19,10 @@
   - [x] Ajouter la cible `riscv32imac-unknown-none-elf` (`rustup`), installer `espflash` et `esp-generate` (pas besoin d'`espup` : il ne sert qu'aux puces Xtensa, pas au C6 qui est RISC-V)
   - [x] Créer le crate `firmware` (Embassy, logs par USB, `led_core` qui tourne sur la puce), hors workspace (ADR-0007)
   - [x] Premier flash sur la carte (2026-11-19) : ESP32-C6 v0.2, **8 Mo** confirmés ; `cargo run` démarre sans erreur
-  - [x] Code pour la LED RGB de la carte (WS2812 sur GPIO8) via le RMT : `firmware/src/board_led.rs`, compilé mais pas encore testé sur la carte
+  - [x] Code pour la LED RGB de la carte (WS2812 sur GPIO8) via le RMT : `firmware/src/board_led.rs`, vérifiée sur la carte (2026-11-19)
   - [x] LED de la carte : remplace le tour de la roue chromatique par une **copie de la bande** résumée en une couleur (`frame_preview`, `rgb_preview`), pour tester sans bande, avec une respiration au rythme des vagues pour les signaux d'état (2026-11-19) ; à voir sur la carte
   - [x] Encodage WS2805 testé sur Mac : pixel → octets → bits → impulsions (`ws2805::encode`, `ws2805::timing`)
-  - [x] Code de la bande via le RMT : `firmware/src/strip.rs` (canal 1, GPIO2, 30 pixels, tampon statique de ~4,8 Ko), avec un test des 5 canaux
+  - [x] Code de la bande : `firmware/src/strip.rs` (GPIO2, 30 pixels), avec un test des 5 canaux ; d'abord avec le RMT, puis en SPI2 + DMA (ADR-0017, image de 840 octets)
   - [ ] Sur la vraie bande : lancer le test des canaux, vérifier l'ordre (RGB, W1/W2) et le nombre de pixels
 - [x] **3. Wi-Fi**
   - [x] Connexion au réseau 2,4 GHz, reconnexion, DHCP (`esp-radio` + `embassy-net`). D'abord avec des identifiants lus à la compilation (ADR-0008), puis repris par Matter (ADR-0009) : `wifi.rs` a été retiré.
@@ -33,12 +33,14 @@
   - [x] **4b.** Level Control et Color Control (luminosité, teinte/saturation, température), reliés à `led_core`
     - [x] `led_core::LightState` : allumage, luminosité, couleur (teinte/saturation ou température) → pixel, et conversions des échelles Matter (`matter_scale`)
     - [x] `matter.rs` : lampe *Extended Color Light* (Level Control, Color Control, Identify, Scenes) ; la bande suit un `LightState` ; compilé, pas encore testé sur la carte
-    - [x] Transitions faites par `rs-matter`, lissées sur 100 ms par la bande (ADR-0010)
+    - [x] Transitions faites par `rs-matter`, lissées par la bande (ADR-0010 ; 200 ms depuis le 2026-11-20, `SMOOTHING_MS`)
   - [ ] Sur la vraie carte : luminosité, couleurs et blancs depuis l'app Maison
-  - [x] **4c.** Mémorisation de l'appairage et du dernier état en flash : partition NVS, `SeqMapKvBlobStore` (ADR-0011) ; compilé, pas encore testé sur la carte
-  - [ ] Sur la vraie carte : la lampe reste appairée et revient à son dernier état après un redémarrage
-  - [x] **4d.** Bouton tactile local (TTP223 sur GPIO3) : appui = bascule via Matter, maintien 5 s au démarrage = oubli de l'appairage (ADR-0012) ; compilé, pas encore testé
-  - [ ] Sur la vraie carte : acheter et brancher le TTP223, vérifier son mode et les deux gestes
+  - [x] **4c.** Mémorisation de l'appairage et du dernier état en flash : partition NVS, `SeqMapKvBlobStore` (ADR-0011)
+  - [x] Sur la vraie carte : la lampe reste appairée après un redémarrage et après un reflash (2026-11-25 : 2 *fabrics* relues, abonnement repris, connexion à l'Apple TV en ~7 s)
+  - [ ] Sur la vraie carte : la lampe revient à son dernier état (allumée, couleur, luminosité) après un redémarrage
+  - [x] **4d.** Bouton tactile local (TTP223 sur GPIO3) : appui = bascule via Matter, maintien 5 s au démarrage = oubli de l'appairage (ADR-0012)
+  - [x] Sur la vraie carte : TTP223 branché (3V3, GND, GPIO3), un appui bascule la lampe et l'app Maison suit (2026-11-25)
+  - [ ] Sur la vraie carte : maintien 5 s au démarrage (oubli de l'appairage)
   - [x] **4e.** Signaux d'état (voir la boîte à idées, ADR-0013)
     - [x] `led_core::effect` : `Scanner` (vague K2000), `blink_on`, `StatusSignal` (attente d'appairage, connexion au Wi-Fi, Wi-Fi perdu) ; testés sur Mac
     - [x] `firmware` : envoyer une image pixel par pixel à la bande (`Strip::show`)
@@ -66,18 +68,17 @@
 - **Envoi à la bande très lent** (mesuré sur la carte le 2026-11-20) : ~100 ms par image avec le RMT, dont la mémoire de 48 impulsions était rechargée par notre tâche. Corrigé en passant au SPI + DMA (ADR-0017) : 3,5 ms par image mesurées ; à vérifier avec la vraie bande que le WS2805 accepte les timings (un analyseur logique sur GPIO2 permettrait de le voir avant).
 
 - **Sélecteur de couleur de l'app Maison** : un clic au bord du spectre ramène le curseur vers le centre (essai du 2026-11-19). La lampe reçoit bien la **saturation maximale** (254) : c'est l'app qui replace son curseur. (La LED qui ne suivait pas les couleurs était un autre bug, corrigé le 2026-11-20 : `fade_done`.)
-- **Appairage perdu après un reflash** (essai du 2026-11-19) : le Wi-Fi et les réglages de base sont relus depuis la flash, mais pas la *fabric* (« Device is not commissioned yet »). À comprendre avec les logs de `rs_matter_embassy::persist` en `debug` : place dans les 24 Ko de la NVS, taille des données, erreur de lecture ?
+- **Appairage perdu après un reflash** (essai du 2026-11-19 : *fabric* non relue, « Device is not commissioned yet ») : **pas reproduit** le 2026-11-25. Reflash avec `ESP_LOG="info,rs_matter_embassy::persist=debug"` : 13 clés en flash, les 2 *fabrics* relues (`Loaded fabric 1` et `2`), « Device is already commissioned », abonnement repris. Cause du 19 non retrouvée ; hypothèse : un appairage dont la fin n'avait pas été validée (le Wi-Fi est enregistré tout de suite, la *fabric* seulement à la fin). Si ça revient : relancer avec ces logs (`docs/mise-en-route.md`, section 9).
 - **Interrupteurs d'ambiance lents à s'éteindre dans l'app Maison** (3-4 s, essai du 2026-11-21) quand c'est la lampe qui les éteint (autre ambiance, nouvelle couleur). Côté lampe, `rs-matter` envoie le rapport sans attendre (`min_int_secs: 0`) et la veille du Wi-Fi est coupée. **Mesuré avec les logs horodatés** : l'Apple TV accuse réception du rapport « interrupteur éteint » moins de 0,1 s après la commande. Et un appui sur le bouton tactile (changement venu de la lampe, sans action dans l'app) s'affiche **instantanément** dans l'app Maison (2026-11-25) : le relais Apple TV → iPhone est donc rapide. Hypothèse : l'app Maison garde son propre affichage quelques secondes après une commande, avant d'accepter les mises à jour de l'accessoire touché. Rien à faire côté firmware.
 - **Noms dans l'app Maison** : l'accessoire s'appelle « Matter Accessory » et ses 4 lumières « Lumière » à « Lumière 4 ». L'app Maison semble ignorer les noms d'endpoint de Matter (Fixed Label / User Label) : les renommer à la main pour l'instant.
 
 - Bande reçue : consommation réelle en W/m ? (annoncée : 15 W/m, alimentation de 36 W commandée)
 - Sur la bande reçue : W1 = blanc chaud ou blanc froid ? (`WhiteOrder`) Températures des blancs : 3000 K / 6500 K d'après l'annonce (`STRIP_WHITE_CHANNELS`) ; BIN du premier pixel à relier à GND ? (fiche technique)
 - Génération de l'Apple TV 4K (Thread possible ou non) ?
-- GPIO utilisée pour les données de la bande ? (candidates dans `HARDWARE.md`)
 - Boîtier pas encore défini (tube acrylique, pièces imprimées en 3D, lest dans le pied…). Seule contrainte connue : pas de métal autour de l'antenne.
 - L'app Maison envoie-t-elle les couleurs en teinte/saturation ou en XY ? (Les deux sont gérés, XY via `rs-matter`.) Accepte-t-elle la lampe sans le cluster Groups (ADR-0010) ?
-- Lampe finale : la C6-Zero (4 Mo) suffit-elle pour le firmware Matter ? (A priori oui : ~1,9 Mo en `--release` à l'étape 4c.)
-- Les 24 Ko de la partition NVS suffisent-ils aux données Matter ? (ADR-0011)
+- Lampe finale : la C6-Zero (4 Mo) suffit-elle pour le firmware Matter ? (A priori oui : 2,08 Mo en `--release` le 2026-11-25.)
+- ~~Les 24 Ko de la partition NVS suffisent-ils aux données Matter ?~~ Oui (2026-11-25) : ~3 Ko de données pour 13 clés, dont les 2 *fabrics* (1155 et 1170 octets) et l'abonnement (526 octets). (ADR-0011)
 
 ## Idées pour plus tard
 

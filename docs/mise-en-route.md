@@ -165,6 +165,7 @@ Au démarrage, le firmware lance un **test des canaux** : toute la bande s'allum
 | Le flash échoue ou reste bloqué | Passer la carte en mode téléchargement : maintenir **BOOT**, appuyer sur **RESET**, relâcher **BOOT**, puis relancer `cargo run`. |
 | `error[E0463]: can't find crate for core` | La cible n'est pas installée : `rustup target add riscv32imac-unknown-none-elf`. |
 | L'app Maison ne trouve pas la lampe | Bluetooth de l'iPhone activé ? Lampe déjà appairée (pas de QR code dans les logs) : la supprimer de l'app, effacer la partition NVS (voir la section 7), puis recommencer. |
+| La lampe a oublié son appairage (QR code dans les logs après un redémarrage) | Relancer avec les détails de la sauvegarde : `ESP_LOG="info,rs_matter_embassy::persist=debug" cargo run --release`. On doit voir `Found N keys in storage`, `Blob 1: loaded Some(…) bytes`, `Loaded fabric 1 …` puis `Device is already commissioned`. Une ligne `ERROR … cannot be loaded` ou `failure to persist` dit quelle clé pose problème. |
 | L'appairage échoue à l'étape du Wi-Fi | Réseau 5 GHz seulement, ou WPA3 seul. |
 | Panique au démarrage de Matter (*bump allocator*) | Augmenter `BUMP_SIZE` dans `crates/firmware/src/matter/mod.rs`. |
 | La bande clignote au hasard | Adaptateur de niveau absent ou masse non commune (voir HARDWARE, *Pièges connus*). |

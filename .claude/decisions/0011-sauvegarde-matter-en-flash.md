@@ -24,4 +24,4 @@ Jusqu'à l'étape 4b, Matter utilisait un stockage factice (`DummyKvBlobStore`) 
 - Pour **repartir de zéro** (réappairer depuis le début), il faut effacer la partition NVS à la main (commande dans `docs/mise-en-route.md`). Un bouton de remise à zéro viendra avec l'étape 4d.
 - Après une coupure de courant, la lampe revient à son dernier état, mais seulement après le test des canaux (~6 s). Ce test pourra être retiré une fois la bande validée.
 - Un changement perdu si le courant est coupé moins de 3 s après (délai d'écriture des clusters, qui limite l'usure de la flash).
-- À vérifier sur la vraie carte : l'appairage qui survit au redémarrage, et la place suffisante dans les 24 Ko.
+- Vérifié sur la carte (2026-11-25) : l'appairage survit au redémarrage et au reflash ; ~3 Ko de données dans les 24 Ko (deux *fabrics* d'environ 1,2 Ko chacune, l'abonnement, les réglages).

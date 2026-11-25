@@ -80,10 +80,11 @@ const STRIP_PIXELS: usize = 30;
 const STRIP_TEST_LEVEL: u8 = 64;
 /// To check on the real strip with the channel test (see `HARDWARE.md`).
 const STRIP_WHITES: WhiteOrder = WhiteOrder::WarmFirst;
-/// The strip's white LEDs. Typical values: to check on the datasheet.
-/// Matter also uses them as the range of whites the lamp offers.
+/// The strip's white LEDs: 3000 K and 6500 K, from the seller's listing
+/// (SEZO WS2805). Matter also uses them as the range of whites the lamp
+/// offers.
 const STRIP_WHITE_CHANNELS: WhiteChannels = WhiteChannels::new(
-    ColorTemperature::from_kelvin(2700),
+    ColorTemperature::from_kelvin(3000),
     ColorTemperature::from_kelvin(6500),
 );
 /// Matter runs the fades itself, but in steps (every 100 ms for colors),
